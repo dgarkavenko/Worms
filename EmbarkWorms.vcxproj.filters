@@ -1,0 +1,76 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="WormsGame">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="WormsLib - Do not modify!">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Other">
+      <UniqueIdentifier>{6d4614bf-6192-4e23-89ac-7bfe120b2fe8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\WormsLib\TinyPixelNoise.cpp">
+      <Filter>WormsLib - Do not modify!</Filter>
+    </ClCompile>
+    <ClCompile Include="..\WormsLib\Worms.cpp">
+      <Filter>WormsLib - Do not modify!</Filter>
+    </ClCompile>
+    <ClCompile Include="..\WormsGame\WormAI.cpp">
+      <Filter>WormsGame</Filter>
+    </ClCompile>
+    <ClCompile Include="..\WormsGame\Game.cpp">
+      <Filter>WormsGame</Filter>
+    </ClCompile>
+    <ClCompile Include="..\WormsLib\WormsVideoHelp.cpp">
+      <Filter>WormsLib - Do not modify!</Filter>
+    </ClCompile>
+    <ClCompile Include="..\WormsLib\WormsAudioHelp.cpp">
+      <Filter>WormsLib - Do not modify!</Filter>
+    </ClCompile>
+    <ClCompile Include="JukeBox.cpp">
+      <Filter>WormsGame</Filter>
+    </ClCompile>
+    <ClCompile Include="FWorm.cpp">
+      <Filter>WormsGame</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\WormsLib\TinyPixelNoise.h">
+      <Filter>WormsLib - Do not modify!</Filter>
+    </ClInclude>
+    <ClInclude Include="..\WormsLib\Worms.h">
+      <Filter>WormsLib - Do not modify!</Filter>
+    </ClInclude>
+    <ClInclude Include="..\WormsLib\WormsVideoHelp.h">
+      <Filter>WormsLib - Do not modify!</Filter>
+    </ClInclude>
+    <ClInclude Include="..\WormsLib\WormsAudioHelp.h">
+      <Filter>WormsLib - Do not modify!</Filter>
+    </ClInclude>
+    <ClInclude Include="JukeBox.h">
+      <Filter>WormsGame</Filter>
+    </ClInclude>
+    <ClInclude Include="FWorm.h">
+      <Filter>WormsGame</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\.gitignore">
+      <Filter>Other</Filter>
+    </None>
+    <None Include="..\LICENSE">
+      <Filter>Other</Filter>
+    </None>
+    <None Include="..\README.md">
+      <Filter>Other</Filter>
+    </None>
+    <None Include="..\ASSIGNMENT.md">
+      <Filter>Other</Filter>
+    </None>
+  </ItemGroup>
+</Project>
