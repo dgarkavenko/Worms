@@ -32,10 +32,10 @@
     <ClCompile Include="..\WormsLib\WormsAudioHelp.cpp">
       <Filter>WormsLib - Do not modify!</Filter>
     </ClCompile>
-    <ClCompile Include="JukeBox.cpp">
+    <ClCompile Include="..\WormsGame\JukeBox.cpp">
       <Filter>WormsGame</Filter>
     </ClCompile>
-    <ClCompile Include="FWorm.cpp">
+    <ClCompile Include="..\WormsGame\FWorm.cpp">
       <Filter>WormsGame</Filter>
     </ClCompile>
   </ItemGroup>
@@ -52,10 +52,16 @@
     <ClInclude Include="..\WormsLib\WormsAudioHelp.h">
       <Filter>WormsLib - Do not modify!</Filter>
     </ClInclude>
-    <ClInclude Include="JukeBox.h">
+    <ClInclude Include="..\WormsGame\JukeBox.h">
       <Filter>WormsGame</Filter>
     </ClInclude>
-    <ClInclude Include="FWorm.h">
+    <ClInclude Include="..\WormsGame\Game.h">
+      <Filter>WormsGame</Filter>
+    </ClInclude>
+    <ClInclude Include="..\WormsGame\FWorm.h">
+      <Filter>WormsGame</Filter>
+    </ClInclude>
+    <ClInclude Include="VecMath.h">
       <Filter>WormsGame</Filter>
     </ClInclude>
   </ItemGroup>

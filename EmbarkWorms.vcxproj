@@ -56,22 +56,24 @@
     <Link />
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\WormsGame\FWorm.cpp" />
+    <ClCompile Include="..\WormsGame\JukeBox.cpp" />
     <ClCompile Include="..\WormsGame\WormAI.cpp" />
     <ClCompile Include="..\WormsGame\Game.cpp" />
     <ClCompile Include="..\WormsLib\TinyPixelNoise.cpp" />
     <ClCompile Include="..\WormsLib\Worms.cpp" />
     <ClCompile Include="..\WormsLib\WormsAudioHelp.cpp" />
     <ClCompile Include="..\WormsLib\WormsVideoHelp.cpp" />
-    <ClCompile Include="FWorm.cpp" />
-    <ClCompile Include="JukeBox.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\WormsGame\FWorm.h" />
+    <ClInclude Include="..\WormsGame\Game.h" />
+    <ClInclude Include="..\WormsGame\JukeBox.h" />
     <ClInclude Include="..\WormsLib\TinyPixelNoise.h" />
     <ClInclude Include="..\WormsLib\Worms.h" />
     <ClInclude Include="..\WormsLib\WormsAudioHelp.h" />
     <ClInclude Include="..\WormsLib\WormsVideoHelp.h" />
-    <ClInclude Include="FWorm.h" />
-    <ClInclude Include="JukeBox.h" />
+    <ClInclude Include="VecMath.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.gitignore" />
