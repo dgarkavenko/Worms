@@ -7,13 +7,13 @@
 #include "WormsLib/WormsAudioHelp.h"
 #include "WormsLib/TinyPixelNoise.h"
 #include "WormsLib/Worms.h"
-#include "GameState.h"
 
 #define WORLD_WIDTH 1920
 #define WORLD_HEIGHT 1080
 #define GRID_COLUMNS 16
 #define GRID_ROWS 16
 
+struct GameState;
 constexpr float GRID_WIDTH = WORLD_WIDTH / GRID_COLUMNS;
 constexpr float GRID_HEIGHT = WORLD_HEIGHT / GRID_COLUMNS;
 
@@ -44,13 +44,12 @@ private:
 
 	GameState* _currentState;
 	EGameRules Rules;
-	unsigned DebugDisplay = 0;
 
 	const FRect WorldBounds;
 	FWormsAudioHelp AudioHelp;
 	JukeBox JukeBox;
 	std::vector<Food> FoodGrid[GRID_COLUMNS * GRID_ROWS];
-		
+
 	std::vector<FWorm> Worms{};
 	std::vector<FWorm> WormParts;
 
@@ -60,13 +59,14 @@ private:
 
 	void Render(const FVideo& Video);
 
-	std::vector<Food> &GetFoodCell(FVec2 position);
-	unsigned GetAdjacentFoodCells (FVec2 position, unsigned cells[9]);
+	std::vector<Food>& GetFoodCell(FVec2 position);
+	unsigned GetAdjacentFoodCells(FVec2 position, unsigned cells[9]);
 	inline bool IsPlayerWorm(FWorm* worm) { return worm == &PlayerWorm(); }
 
 public:
 
 	FViewportTransform ViewPortTransform;
+	unsigned DebugDisplay = 0;
 
 	GameContext(const FTime* time);
 	bool Update(const FVideo& Video, const FAudio& Audio, const FInput& Input, const FTime& Time);
@@ -74,4 +74,4 @@ public:
 	void ProcessOverlaps(const FTime& Time);
 	inline FWorm& PlayerWorm() { return Worms[0]; }
 
-} *Game;
+};

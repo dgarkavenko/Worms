@@ -1,17 +1,16 @@
 #pragma once
 #include "WormsLib/TinyPixelNoise.h"
 
-
 struct GameContext;
 
 struct GameState
 {
 	virtual ~GameState() {}
 	virtual void Update(const FInput& Input, const FTime& Time);
-	void SetContext(GameContext* game_context) { GameContext = game_context; }
+	inline void SetContext(GameContext* game_context) { _gameContext = game_context; }
 	
 protected:
-	GameContext* GameContext;
+	GameContext* _gameContext {0};
 	float _stateTime = 0;
 
 };

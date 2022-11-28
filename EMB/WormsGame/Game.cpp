@@ -1,3 +1,4 @@
+#include "GameState.h"
 #include "Game.h"
 
 #include "JukeBox.h"
@@ -10,10 +11,7 @@ GameContext::GameContext(const FTime* time): WorldBounds{ FRect{FVec2{-960.f, -5
                                  , JukeBox{ time }
 {
 	_currentState = new IntroState;
-
-	DebugDisplay |= EDebugDisplay_FoodBroadphase;
-	DebugDisplay |= EDebugDisplay_Breadcrumbs;
-	DebugDisplay |= EDebugDisplay_BoundingBoxes;
+	_currentState->SetContext(this);	
 
 	SharedAI = FAIFactory::FirstAIFactory->MakeAI();
 
@@ -297,10 +295,18 @@ bool GameContext::Update(const FVideo& Video, const FAudio& Audio, const FInput&
 }
 
 
+GameContext* Game;
+
 bool GameUpdate(const FVideo& Video, const FAudio& Audio, const FInput& Input, const FTime& Time)
 {
-	if (!Game)
-		Game = new GameContext{&Time};
+	if (Game == nullptr)
+	{
+		Game = new GameContext{ &Time };
+		Game->DebugDisplay =
+			EDebugDisplay_FoodBroadphase |
+			EDebugDisplay_Breadcrumbs |
+			EDebugDisplay_BoundingBoxes;
+	}
 
 	return Game->Update(Video, Audio, Input, Time);
 }

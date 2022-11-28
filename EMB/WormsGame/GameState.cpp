@@ -13,16 +13,16 @@ void IntroState::Update(const FInput& Input, const FTime& Time)
 {
 	GameState::Update(Input, Time);
 	if (_stateTime > .5f)
-		GameContext->ChangeState(new PlaybleState);
+		_gameContext->ChangeState(new PlaybleState);
 }
 
 void PlaybleState::Update(const FInput& Input, const FTime& Time)
 {
 	GameState::Update(Input, Time);
 
-	GameContext->UpdateAI(Time);
-	GameContext->PlayerWorm().MoveTowards(Time, GameContext->ViewPortTransform.ViewportToWorld(Input.MousePos), Input.ActionButton0);
-	GameContext->ProcessOverlaps(Time);
+	_gameContext->UpdateAI(Time);
+	_gameContext->PlayerWorm().MoveTowards(Time, _gameContext->ViewPortTransform.ViewportToWorld(Input.MousePos), Input.ActionButton0);
+	_gameContext->ProcessOverlaps(Time);
 }
 
 void GameOverState::Update(const FInput& Input, const FTime& Time)
