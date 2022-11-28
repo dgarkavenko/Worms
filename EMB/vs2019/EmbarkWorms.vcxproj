@@ -57,6 +57,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\WormsGame\FWorm.cpp" />
+    <ClCompile Include="..\WormsGame\GameState.cpp" />
     <ClCompile Include="..\WormsGame\JukeBox.cpp" />
     <ClCompile Include="..\WormsGame\WormAI.cpp" />
     <ClCompile Include="..\WormsGame\Game.cpp" />
@@ -68,6 +69,7 @@
   <ItemGroup>
     <ClInclude Include="..\WormsGame\FWorm.h" />
     <ClInclude Include="..\WormsGame\Game.h" />
+    <ClInclude Include="..\WormsGame\GameState.h" />
     <ClInclude Include="..\WormsGame\JukeBox.h" />
     <ClInclude Include="..\WormsLib\TinyPixelNoise.h" />
     <ClInclude Include="..\WormsLib\Worms.h" />

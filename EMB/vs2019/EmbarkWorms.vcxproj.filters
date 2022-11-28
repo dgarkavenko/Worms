@@ -38,6 +38,9 @@
     <ClCompile Include="..\WormsGame\FWorm.cpp">
       <Filter>WormsGame</Filter>
     </ClCompile>
+    <ClCompile Include="..\WormsGame\GameState.cpp">
+      <Filter>WormsGame</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\WormsLib\TinyPixelNoise.h">
@@ -62,6 +65,9 @@
       <Filter>WormsGame</Filter>
     </ClInclude>
     <ClInclude Include="VecMath.h">
+      <Filter>WormsGame</Filter>
+    </ClInclude>
+    <ClInclude Include="..\WormsGame\GameState.h">
       <Filter>WormsGame</Filter>
     </ClInclude>
   </ItemGroup>
