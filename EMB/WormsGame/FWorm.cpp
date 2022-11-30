@@ -56,8 +56,10 @@ void FWorm::AddToBounds(FVec2 vec2)
 
 void FWorm::MoveTowardsImpl(const FTime& Time, const FVec2& Pos, bool Boost)
 {
+	InputTargetPosition = Pos;
 	FVec2 target_direction = Normalize(Pos - HeadPos());
-	MoveDirection = LerpVectorRotation(MoveDirection, target_direction, RotationSpeed[Boost] * (float)Time.DeltaTime);
+
+	MoveDirection = ShortestAngleInterpolation(MoveDirection, target_direction, RotationSpeed[Boost] * (float)Time.DeltaTime);
 
 	float speed = MovementSpeed[Boost] * (float)Time.DeltaTime;
 	float distance_between = HeadSize() * .5f;

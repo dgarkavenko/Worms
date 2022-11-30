@@ -21,7 +21,15 @@ enum EDebugDisplay : unsigned
 {
 	EDebugDisplay_Breadcrumbs = 1u << 0,
 	EDebugDisplay_BoundingBoxes = 1u << 1,
-	EDebugDisplay_FoodBroadphase = 1u << 2
+	EDebugDisplay_FoodBroadphase = 1u << 2,
+	EDebugDisplay_MoveTargets = 1u << 3,
+
+
+	EDebugDisplay_Full =
+		EDebugDisplay_Breadcrumbs |
+		EDebugDisplay_BoundingBoxes |
+		EDebugDisplay_FoodBroadphase |
+		EDebugDisplay_MoveTargets
 };
 
 enum EGameRules : unsigned {
@@ -45,7 +53,6 @@ private:
 	GameState* _currentState;
 	EGameRules Rules;
 
-	const FRect WorldBounds;
 	FWormsAudioHelp AudioHelp;
 	JukeBox JukeBox;
 	std::vector<Food> FoodGrid[GRID_COLUMNS * GRID_ROWS];
@@ -54,6 +61,7 @@ private:
 	std::vector<FWorm> WormParts;
 
 	std::vector <FWormAISensor> AISensors{};
+	std::vector<std::unique_ptr<IWormAI>> AIs;
 
 	std::unique_ptr<IWormAI> SharedAI;
 
@@ -65,6 +73,7 @@ private:
 
 public:
 
+	const FRect WorldBounds;
 	FViewportTransform ViewPortTransform;
 	unsigned DebugDisplay = 0;
 
@@ -75,3 +84,5 @@ public:
 	inline FWorm& PlayerWorm() { return Worms[0]; }
 
 };
+
+extern GameContext* Game;

@@ -6,8 +6,9 @@ struct FWorm : public IWorm
 {
 	int DeadSegments = 0;
 	float MovementSpeed[2] = {150, 250};
-	float RotationSpeed[2] = { 9, 3 };
+	float RotationSpeed[2] = { 3, 1.5 };
 
+	FVec2 InputTargetPosition{ 0,0 };
 	FVec2 MoveDirection{ 0,0 };
 	FRect Bounds;
 

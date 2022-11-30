@@ -1,4 +1,26 @@
+#include "vs2019/VecMath.h"
 #include "WormsLib/Worms.h"
+#include "Game.h"
+
+#define NUM_RAYCASTS_PER_FRAME 64
+
+void ExtraHitData(const FSenseResult &sensor, FVec2 &hit, FVec2 normal)
+{
+	hit = sensor.RayDir * sensor.HitDistanceFromHead + sensor.HeadPos;
+
+	if(sensor.HitType != ESenseHitType::Wall)
+		return;
+
+	normal = { -1, 0.0f };
+
+	if (Approx(hit.Y, Game->WorldBounds.Begin.Y))
+		normal = { 0,-1 };
+	else if (Approx(hit.Y, Game->WorldBounds.End.Y))
+		normal = { 0.0f,1 };
+	else if (Approx(hit.X, Game->WorldBounds.Begin.X))
+		normal = { 1, 0.0f };
+}
+
 
 struct FWormAI : public IWormAI
 {
@@ -18,30 +40,46 @@ struct FWormAI : public IWormAI
 		// ...
 		// WormAISensor->Sense(SenseRays);
 
+		FVec2 forward = Worm->FacingDirection();
 		std::vector<FVec2> SenseRays;
-		SenseRays.emplace_back(Worm->FacingDirection());
-		
+
+		float step = 1.0f + (int)(Time.ElapsedTime * 10) % 5;
+
+		for (int i = 0; i < NUM_RAYCASTS_PER_FRAME; i++)
+			SenseRays.emplace_back(Rotate(forward, i % 2 == 0 ? i * step : i * -step));
+				
 		WormAISensor->Sense(SenseRays);
 
-		// 2. Loop through and act upon the results from last update's rays
-		// 
-		// for (auto& Sensor : WormAISensor->SenseResults()) {...}
+		FVec2 destination = Worm->HeadPos() + forward * 100;
+		auto* derived_worm = static_cast<FWorm*>(Worm);
+		derived_worm;
 
-		bool TurnBack = false;
-		for (auto& Sensor : WormAISensor->SenseResults()) 
+		int food_detected = 0;
+
+		for (const FSenseResult& sensor : WormAISensor->SenseResults()) 
 		{
-			if (Sensor.HitType == ESenseHitType::Wall)
+			FVec2 hit;
+			FVec2 normal;
+			ExtraHitData(sensor, hit, normal);
+
+			if (sensor.HitType == ESenseHitType::Wall)
 			{
-				TurnBack = true;
+				destination = { 0,0 };
+				break;
+
+			}
+
+			if(sensor.HitType == ESenseHitType::Food)
+			{
+				if(sensor.FoodValue > food_detected)
+				{
+					food_detected = sensor.FoodValue;
+					destination = hit;
+				}
 			}
 		}
 
-		// 3. Change the direction of the worm
-		//
-		// Worm->MoveTowards(...);
-
-		auto MoveTarget = Worm->HeadPos() + Worm->FacingDirection() * (TurnBack ? -1.0f : 1.0f);
-		Worm->MoveTowards(Time, MoveTarget, false);
+		Worm->MoveTowards(Time, destination, false);
 	}
 };
 
