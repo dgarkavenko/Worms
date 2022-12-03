@@ -4,34 +4,34 @@
 #include "JukeBox.h"
 #include "WormsLib/WormsVideoHelp.h"
 #include "vs2019/VecMath.h"
+#include "vs2019/Logger.h"
 
-
-GameContext::GameContext(const FTime* time): WorldBounds{ FRect{FVec2{-960.f, -540.f}, FVec2{960.f, 540.f}} }
+GameContext::GameContext(const FTime& Time): WorldBounds{ FRect{FVec2{-960.f, -540.f}, FVec2{960.f, 540.f}} }
                                              , AudioHelp{}
-                                             , JukeBox{ time }
+                                             , JukeBox{}
 {
+	
 	_currentState = new IntroState;
-	_currentState->SetContext(this);	
-
+	_currentState->SetContext(this);
+	_currentState->OnEnter(Time);
+	
 	SharedAI = FAIFactory::FirstAIFactory->MakeAI();
 	Worms.push_back(FWorm({ 100, 100 }));
 
 	//enemy count
-	for (size_t i = 0; i < 1; i++)
+	for (size_t i = 0; i < 3; i++)
 	{
 		Worms.push_back(FWorm({ 100, 150.0f + 50 * i }));
 		AISensors.emplace_back();
 		AIs.push_back(FAIFactory::FirstAIFactory->MakeAI());
 	}
 
-	int food_amount = 0;
-
 	for (size_t i = 0; i < GRID_COLUMNS * GRID_ROWS; i++)
-	{
-		FoodGrid[i].resize(500);
-	}
+		FoodGridPtrs[i] = new std::vector<Food>();
 
-	while (food_amount <= 2000)
+	int food_amount = 0;
+	
+	while (food_amount <= 500)
 	{
 		const int spawn_amount = RandomInt(1, 3);
 		const float max_food_size = FWormsVideoHelp::FoodRadius(3);
@@ -81,45 +81,44 @@ void DrawBounds(const FVideo& Video, const FVideoViewPort& ViewPort, const FView
 
 void GameContext::Render(const FVideo& Video)
 {
-	// Render out the game	
-
 	FWormsVideoHelp::Grid(Video, Video.ViewPort(), ViewPortTransform, WorldBounds);
 
-	// Let the eyes follow the mouse cursor
-	//const FVec2 LookAt = ViewPortTransform.ViewportToWorld(Input.MousePos);
-
 	if(DebugDisplay & EDebugDisplay_BoundingBoxes)
+	{
 		for (auto& worm : Worms)
 			DrawBounds(Video, Video.ViewPort(), ViewPortTransform, worm.Bounds);
+	}
 	
 	for (auto& worm : Worms)
 		FWormsVideoHelp::Worm(Video, Video.ViewPort(), ViewPortTransform, IsPlayerWorm(&worm), worm.HeadSize() / 2.0f, worm.Points.size(), worm.Points.data(), nullptr);
 
-	for (auto& worm : WormParts)
+	for (auto& worm_parts : WormParts)
 	{
-		float Size[64];
-		std::fill_n(Size, 64, worm.HeadSize());
+		float Size[256];
+		std::fill_n(Size, 256, worm_parts.HeadSize());
 
-		std::vector<FColor> Color(worm.Points.size());
+		std::vector<FColor> Color(worm_parts.Points().size());
 
-		const FColor Colors[2][2] = { {0xB2DDBC, 0x72BB7A}, {0x3A6656, 0x72BB7A} };
 		int Index = 0;
-		std::generate(std::rbegin(Color), std::rend(Color), [Colors, &Index]() {
+
+		std::generate(std::rbegin(Color), std::rend(Color), [worm_parts, &Index]() {
 			const auto I = Index++;
-			return Colors[(I / 6) % 2][I % 2];
+			return worm_parts.Colors[(I / 6) % 2][I % 2];
 			});
 
-		Dots(Video, Video.ViewPort(), ViewPortTransform, worm.Points.size(), worm.Points.data(), sizeof(worm.Points[0]), Size, sizeof(Size[0]), Color.data(), sizeof(Color[0]));
+		Dots(Video, Video.ViewPort(), ViewPortTransform, worm_parts.Points().size(), worm_parts.Points().data(), sizeof(worm_parts.Points()[0]), Size, sizeof(Size[0]), Color.data(), sizeof(Color[0]));
 	}
 
 	if (DebugDisplay & EDebugDisplay_Breadcrumbs)
+	{
 		for (auto& worm : Worms)
 			FWormsVideoHelp::Worm(Video, Video.ViewPort(), ViewPortTransform, &worm == &PlayerWorm() ? 0 : 1, 2, worm.BreadCrumbs.size(), worm.BreadCrumbs.data(), nullptr);
 
-
+	}
+	
 	for (size_t i = 0; i < GRID_COLUMNS * GRID_ROWS; i++)
 	{
-		for (auto food : FoodGrid[i])
+		for (auto food : *FoodGridPtrs[i])
 			FWormsVideoHelp::Food(Video, Video.ViewPort(), ViewPortTransform, food.Position, food.Value);
 	}
 
@@ -147,7 +146,7 @@ void GameContext::Render(const FVideo& Video)
 
 		for (unsigned j = 0; j < food_cells_count; j++)
 		{
-			auto& food_cell = FoodGrid[food_cell_indecies[j]];
+			auto& food_cell = *FoodGridPtrs[food_cell_indecies[j]];
 			for (size_t food_index = 0; food_index < food_cell.size(); food_index++)
 			{
 				const auto& food = food_cell[food_index];
@@ -166,9 +165,6 @@ void GameContext::UpdateAI(const FTime& Time)
 
 	for (size_t i = 1; i < Worms.size(); i++)
 	{
-		//auto& ai = SharedAI;
-		//SharedAI->Possess(Worms[i], AISensors[i-1]);
-
 		auto& ai = AIs[i - 1];
 		ai->Possess(Worms[i], AISensors[i - 1]);
 		auto SenseDirections = AISensors[i-1].TakeSenseDirections();
@@ -188,7 +184,7 @@ void GameContext::UpdateAI(const FTime& Time)
 			unsigned food_cells_count = GetAdjacentFoodCells(RayStart, &food_cell_indecies[0]);
 			for (unsigned j = 0; j < food_cells_count; j++)
 			{
-				auto& food_cell = FoodGrid[food_cell_indecies[j]];
+				auto& food_cell = *FoodGridPtrs[food_cell_indecies[j]];
 				for (size_t food_index = 0; food_index < food_cell.size(); food_index++)
 				{
 					const auto& food = food_cell[food_index];
@@ -209,49 +205,21 @@ void GameContext::UpdateAI(const FTime& Time)
 	}
 }
 
-void GameContext::ChangeState(GameState *state)
+void GameContext::ChangeState(GameState *state, const FTime& Time)
 {
 	delete _currentState;
 	_currentState = state;
 	_currentState->SetContext(this);
+	_currentState->OnEnter(Time);
 }
 
-void song()
-{
-
-	//Note bass[] = {
-	//	{Tone_C2, 1},
-	//	{Tone_F2, 1},
-	//	{Tone_C2, 1},
-	//	{Tone_A2, 1},
-	//	{Tone_F2, 1},
-	//};
-
-	//JukeBox.PlayTune(bass, sizeof(bass) / sizeof(Note), 90);
-
-	//Note notes[] = {
-	//	{Tone_C4, 4},
-	//	{Tone_B4, 4},
-	//	{Tone_A4, 4},
-	//	{Tone_C4, 4},
-	//	{Tone_C4, 4},
-	//	{Tone_D4, 4},
-	//	{Tone_B4, 4},
-	//	{Tone_C4, 4},
-	//	{Tone_C4, 4},
-	//	{Tone_C4, 4},
-	//};
-
-	//JukeBox.PlayTune(notes, sizeof(notes) / sizeof(Note), 90);
-}
-
-void GameContext::ProcessOverlaps(const FTime& Time)
+bool GameContext::ProcessOverlaps(const FTime& Time)
 {
 	if(Time.DeltaTime == 0)
-		return;
+		return true;
 
 	if (!Inside(PlayerWorm().HeadPos(), WorldBounds))
-		ChangeState(new GameOverState);
+		PlayerWorm().DeadSegments = (int) PlayerWorm().Points.size();
 
 	unsigned food_cell_indecies[9]{};
 
@@ -262,7 +230,7 @@ void GameContext::ProcessOverlaps(const FTime& Time)
 		unsigned food_cells_count = GetAdjacentFoodCells(worm.HeadPos(), &food_cell_indecies[0]);
 		for (unsigned j = 0; j < food_cells_count; j++)
 		{
-			auto& food_cell = FoodGrid[food_cell_indecies[j]];
+			auto& food_cell = *FoodGridPtrs[food_cell_indecies[j]];
 			for (size_t food_index = 0; food_index < food_cell.size(); food_index++)
 			{
 				const auto& food = food_cell[food_index];								
@@ -271,63 +239,155 @@ void GameContext::ProcessOverlaps(const FTime& Time)
 				if (distance < worm.HeadSize() * .5f + FWormsVideoHelp::FoodRadius(food.Value))
 				{
 					for (int k = 0; k < food.Value; k++)
-						worm.Points.insert(worm.Points.begin(), worm.Points.front());
+						worm.Points.insert(worm.Points.begin(), worm.Points.front());					
+
+					if (IsPlayerWorm(&worm))
+						JukeBox.FoodConsumedTone(Time, food.Value);
 
 					food_cell.erase(std::next(food_cell.begin(), food_index));
-
 					break;
 				}
 			}
 		}
 	}
-
-	// worms
+	
 	for (size_t worm_index = 0; worm_index < Worms.size(); worm_index++)
 	{
 		auto& worm = Worms[worm_index];
 
 		for (size_t another_worm_index = 0; another_worm_index < Worms.size(); another_worm_index++)
 		{
-			if (worm_index == another_worm_index)
-				continue;
+			if ((GameRules & EGameRules_SelfCollision) == 0)
+				if (worm_index == another_worm_index)
+					continue;
 
 			FWorm& another_worm = Worms[another_worm_index];
 			const float contact_distance = (worm.HeadSize() + another_worm.HeadSize()) * .5f;
 
-			if(!Inside(worm.HeadPos(), another_worm.Bounds))
+			if (!Inside(worm.HeadPos(), another_worm.Bounds))
 				continue;
 
 			for (unsigned i = 0; i < another_worm.Points.size(); i++)
 			{
-				if(VecLength(worm.HeadPos() - another_worm.Points[i]) < contact_distance)
+				if ((worm.HeadPos() - another_worm.Points[i]).Norm() < contact_distance)
 				{
-					another_worm.DeadSegments = std::min(i + 1, (unsigned)another_worm.Points.size() - 2);
-					break;
+					if (GameRules & EGameRules_CollidingIntoWormCutsIt)
+					{
+						JukeBox.DamageTone(Time, i + 1);
+						another_worm.DeadSegments = i + 1;
+					}
+
+					if(GameRules & EGameRules_CollidingIntoWormsKillsYou)
+						worm.DeadSegments = (int) worm.Points.size();
 				}
 			}
 		}
 	}
 
-	for (size_t worm_index = 0; worm_index < Worms.size(); worm_index++)
+
+	for (int worm_index = (int)Worms.size() - 1; worm_index >= 0; --worm_index)
 	{
 		FWorm& worm = Worms[worm_index];
-		if(worm.DeadSegments > 0)
+
+		if(worm.DeadSegments <= 0)
+			continue;
+
+		FVec2 copy = worm.Points.front();
+
+		if(IsPlayerWorm(&worm))
+			WormParts.emplace_back(WormPart{FWorm{copy}, PLAYER_COLORS });
+		else
+			WormParts.emplace_back(WormPart{ FWorm{copy}, OTHERS_COLORS });
+
+		WormParts.back().Points().clear();
+
+		for(auto it = worm.Points.begin(); it < std::next(worm.Points.begin(), worm.DeadSegments); it++)
 		{
-			//GetFoodCell(worm.Points.front()).push_back({ worm.Points.front(),1 });
-			FVec2 copy = worm.Points.front();
-			WormParts.emplace_back(FWorm({ copy }));
-			WormParts.back().Points.clear();
+			copy = *it;
+			WormParts.back().Points().emplace_back(copy);				
+		}
 
-			for(auto it = worm.Points.begin(); it < std::next(worm.Points.begin(), worm.DeadSegments); it++)
+		JukeBox.DamageTone(Time, worm.DeadSegments);
+
+		if (worm.DeadSegments >= worm.HP())
+		{
+			bool player_worm = IsPlayerWorm(&worm);
+			if (player_worm)
 			{
-				copy = *it;
-				WormParts.back().Points.emplace_back(copy);				
+				worm.Points.erase(worm.Points.begin(), std::next(worm.Points.begin(), worm.DeadSegments - 1));
+				worm.DeadSegments = 0;
+				return false;
 			}
-
+			else
+				Worms.erase(std::next(Worms.begin(), worm_index));
+		}
+		else
+		{
 			worm.Points.erase(worm.Points.begin(), std::next(worm.Points.begin(), worm.DeadSegments));
-			worm.DeadSegments = 0;			
+			worm.DeadSegments = 0;
 		}
 	}
+
+	return true;
+}
+
+void GameContext::ProcessDeadParts(const FTime& Time)
+{
+	if(Time.ElapsedTime < _nextPartsUpdate)
+		return;
+
+	_nextPartsUpdate = Time.ElapsedTime + DEAD_PARTS_UPDATE;
+
+	for (size_t i = 0; i < WormParts.size(); i++)
+	{
+		auto& points = WormParts[i].Points();
+		if (!points.empty())
+		{
+			FVec2 point = points.back();
+			GetFoodCell(point).push_back(Food{ point, 1 });
+			points.pop_back();
+		}
+
+		if (!points.empty())
+		{
+			FVec2 point = *points.begin();
+			GetFoodCell(point).push_back(Food{ point, 1 });
+			points.erase(points.begin());
+		}
+	}
+}
+
+void GameContext::LoopGameTheme(const FTime& Time)
+{
+	JukeBox.LoopBass(Time);
+	JukeBox.LoopHighs(Time);
+}
+
+void GameContext::LoopGameOverTheme(const FTime& Time)
+{
+	JukeBox.LoopBass(Time);
+}
+
+void GameContext::PlayOpening(const FTime& Time)
+{
+	Note highs[] = {
+		{Tone_0, 8},
+		{Tone_C4, 8},
+		{Tone_0, 16},
+		{Tone_E4, 8},
+		{Tone_0, 16},
+		{Tone_F4, 8},
+	};
+
+	JukeBox.PlayTune(highs, sizeof(highs) / sizeof(Note), 60, Time.ElapsedTime);
+}
+
+GameContext::~GameContext()
+{
+	for (size_t i = 0; i < GRID_COLUMNS * GRID_ROWS; i++)
+		delete FoodGridPtrs[i];
+
+	delete _currentState;
 }
 
 std::vector<Food>& GameContext::GetFoodCell(FVec2 position)
@@ -335,8 +395,7 @@ std::vector<Food>& GameContext::GetFoodCell(FVec2 position)
 	position += FVec2(WORLD_WIDTH, WORLD_HEIGHT) * .5f;
 	int col = static_cast<int>(position.Y / GRID_HEIGHT);
 	int row =  + static_cast<int>(position.X / GRID_WIDTH);
-	std::cout << row << ":" << col;
-	return FoodGrid[col * GRID_ROWS + row];
+	return *FoodGridPtrs[col * GRID_ROWS + row];
 }
 
 unsigned GameContext::GetAdjacentFoodCells(FVec2 position, unsigned cells[9])
@@ -357,8 +416,8 @@ unsigned GameContext::GetAdjacentFoodCells(FVec2 position, unsigned cells[9])
 bool GameContext::Update(const FVideo& Video, const FAudio& Audio, const FInput& Input, const FTime& Time)
 {
 	AudioHelp.Silence(Audio);
-	JukeBox.Update(AudioHelp);
-	Time.DeltaTime;
+	JukeBox.Update(AudioHelp, Time);
+
 	const FVec2 ViewPortCenter{ Video.Width / 2.0f, Video.Height / 2.0f };
 	const float ViewPortScale = Video.Width / 1920.0f;
 	FVec2 offset = ViewPortCenter - PlayerWorm().HeadPos() * ViewPortScale;
@@ -368,8 +427,7 @@ bool GameContext::Update(const FVideo& Video, const FAudio& Audio, const FInput&
 	AudioHelp.Mix(Audio);			
 	Render(Video);
 		
-	const bool Continue = !Input.Escape;
-	return Continue;
+	return 1;
 }
 
 GameContext* Game;
@@ -378,9 +436,26 @@ bool GameUpdate(const FVideo& Video, const FAudio& Audio, const FInput& Input, c
 {
 	if (Game == nullptr)
 	{
-		Game = new GameContext{ &Time };
+		Game = new GameContext{ Time };
 		Game->DebugDisplay = EDebugDisplay_MoveTargets;
+		Game->GameRules =
+			EGameRules_CollidingIntoWormsKillsYou 
+			//EGameRules_SelfCollision |
+			//EGameRules_CollidingIntoWormCutsIt
+			;
+
 	}
 
-	return Game->Update(Video, Audio, Input, Time);
+	Game->Update(Video, Audio, Input, Time);
+	
+	if (Game->Reset)
+	{
+		delete Game;
+		Game = nullptr;
+	}
+
+	if (Input.Escape)
+		return false;
+
+	return true;
 }

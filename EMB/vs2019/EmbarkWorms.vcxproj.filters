@@ -41,6 +41,9 @@
     <ClCompile Include="..\WormsGame\GameState.cpp">
       <Filter>WormsGame</Filter>
     </ClCompile>
+    <ClCompile Include="Logger.cpp">
+      <Filter>WormsGame</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\WormsLib\TinyPixelNoise.h">
@@ -69,6 +72,9 @@
     </ClInclude>
     <ClInclude Include="..\WormsGame\GameState.h">
       <Filter>WormsGame</Filter>
+    </ClInclude>
+    <ClInclude Include="Logger.h">
+      <Filter>WormsLib - Do not modify!</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

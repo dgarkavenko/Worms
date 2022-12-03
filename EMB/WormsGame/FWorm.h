@@ -16,6 +16,7 @@ struct FWorm : public IWorm
 	std::vector<FVec2> BreadCrumbs;
 
 	explicit FWorm(const FVec2& HeadPosition);
+	inline int HP() { return (int)Points.size() - 2; }
 
 private:
 	FVec2 HeadPosImpl() const override;

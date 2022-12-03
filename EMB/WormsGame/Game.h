@@ -8,14 +8,20 @@
 #include "WormsLib/TinyPixelNoise.h"
 #include "WormsLib/Worms.h"
 
+
 #define WORLD_WIDTH 1920
 #define WORLD_HEIGHT 1080
 #define GRID_COLUMNS 16
 #define GRID_ROWS 16
 
+#define DEAD_PARTS_UPDATE 1.0 / 12.0f
+
+#define OTHERS_COLORS { {0xDFBB99, 0xB98704}, {0x774300, 0xB98704} }
+#define PLAYER_COLORS { {0xB2DDBC, 0x72BB7A}, {0x3A6656, 0x72BB7A} }
+
 struct GameState;
-constexpr float GRID_WIDTH = WORLD_WIDTH / GRID_COLUMNS;
-constexpr float GRID_HEIGHT = WORLD_HEIGHT / GRID_COLUMNS;
+constexpr float GRID_WIDTH = WORLD_WIDTH / (GRID_COLUMNS - 1);
+constexpr float GRID_HEIGHT = WORLD_HEIGHT / (GRID_ROWS - 1);
 
 enum EDebugDisplay : unsigned
 {
@@ -33,8 +39,9 @@ enum EDebugDisplay : unsigned
 };
 
 enum EGameRules : unsigned {
-	EGameRules_CanCollideWithSelf = 1u << 0,
-	EGameRules_BodyCollissionsKill = 1u << 1
+	EGameRules_SelfCollision = 1u << 0,
+	EGameRules_CollidingIntoWormCutsIt = 1u << 1,
+	EGameRules_CollidingIntoWormsKillsYou = 1u << 2
 };
 
 struct Food
@@ -43,22 +50,30 @@ struct Food
 	int Value;
 };
 
+struct WormPart
+{
+	FWorm Worm;
+	FColor Colors[2][2];
+	std::vector<FVec2>& Points(){ return Worm.Points; }
+	float HeadSize(){ return Worm.HeadSize(); }
+};
+
 struct GameContext
 {
-	void ChangeState(GameState* state);
-
 
 private:
 
+	double _consume_sound_timeout = 0;
+
+	double _nextPartsUpdate;
 	GameState* _currentState;
-	EGameRules Rules;
 
 	FWormsAudioHelp AudioHelp;
 	JukeBox JukeBox;
-	std::vector<Food> FoodGrid[GRID_COLUMNS * GRID_ROWS];
+	std::vector<Food>* FoodGridPtrs[GRID_COLUMNS * GRID_ROWS];
 
 	std::vector<FWorm> Worms{};
-	std::vector<FWorm> WormParts;
+	std::vector<WormPart> WormParts;
 
 	std::vector <FWormAISensor> AISensors{};
 	std::vector<std::unique_ptr<IWormAI>> AIs;
@@ -73,16 +88,25 @@ private:
 
 public:
 
+	bool Reset = false;
 	const FRect WorldBounds;
 	FViewportTransform ViewPortTransform;
 	unsigned DebugDisplay = 0;
+	unsigned GameRules;
 
-	GameContext(const FTime* time);
+	GameContext(const FTime& Time);
+	void ChangeState(GameState* state, const FTime& Time);
 	bool Update(const FVideo& Video, const FAudio& Audio, const FInput& Input, const FTime& Time);
 	void UpdateAI(const FTime& Time);
-	void ProcessOverlaps(const FTime& Time);
-	inline FWorm& PlayerWorm() { return Worms[0]; }
+	bool ProcessOverlaps(const FTime& Time);
+	void ProcessDeadParts(const FTime& Time);
+	void LoopGameTheme(const FTime& Time);
+	void LoopGameOverTheme(const FTime& Time);
+	void PlayOpening(const FTime& Time);
 
+	inline FWorm& PlayerWorm() {return Worms[0]; }
+	
+	~GameContext();
 };
 
 extern GameContext* Game;

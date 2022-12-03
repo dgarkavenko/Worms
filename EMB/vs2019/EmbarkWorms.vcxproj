@@ -68,6 +68,7 @@
     <ClCompile Include="..\WormsLib\Worms.cpp" />
     <ClCompile Include="..\WormsLib\WormsAudioHelp.cpp" />
     <ClCompile Include="..\WormsLib\WormsVideoHelp.cpp" />
+    <ClCompile Include="Logger.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\WormsGame\FWorm.h" />
@@ -78,6 +79,7 @@
     <ClInclude Include="..\WormsLib\Worms.h" />
     <ClInclude Include="..\WormsLib\WormsAudioHelp.h" />
     <ClInclude Include="..\WormsLib\WormsVideoHelp.h" />
+    <ClInclude Include="Logger.h" />
     <ClInclude Include="VecMath.h" />
   </ItemGroup>
   <ItemGroup>

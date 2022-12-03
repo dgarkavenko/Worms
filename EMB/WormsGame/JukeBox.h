@@ -32,6 +32,10 @@ enum Tone : unsigned
 	Tone_G4,
 	Tone_A4,
 	Tone_B4,
+	Tone_C5,
+	Tone_D5,
+	Tone_E5,
+	Tone_F5,
 	Tone_Count
 };
 
@@ -49,12 +53,8 @@ struct Playback
 	bool mixed = false;
 };
 
-
-
-
 class JukeBox
 {
-	const FTime* Time;
 	static const unsigned queue_mask = (PLAYBKAC_SIZE - 1);
 	unsigned queue_front; /*read index*/
 	unsigned queue_back; /*write index*/
@@ -83,18 +83,29 @@ class JukeBox
 		392.00f,
 		440.00f,
 		493.88f,
+		523.25f,
+		587.33f,
+		659.25f,
+		739.99f
 	};
+
+	double _consume_sound_timeout = 0;
+	double _bass_loop_timeout = 0;
+	double _highs_loop_timeout = 0;
 
 
 public:
-	explicit JukeBox(const FTime *time) :
-		Time(time),
+	explicit JukeBox() :
 		queue_front(0),
 		queue_back(0)
 	{}
 
-	void PlayTune(Note notes[], unsigned count, int BPM);
-	void Update(FWormsAudioHelp &AudioHelp);
-
+	double PlayTune(Note notes[], unsigned count, int BPM, double start_time);
+	double AddToSequence(Note notes[], unsigned count, int BPM, const FTime& Time);
+	void Update(FWormsAudioHelp &AudioHelp, const FTime Time);
+	void FoodConsumedTone(const FTime& Time, int value);
+	void LoopBass(const FTime& Time);
+	void LoopHighs(const FTime& Time);
+	void DamageTone(const FTime& Time, int value);
 };
 
