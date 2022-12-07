@@ -16,12 +16,14 @@ GameContext::GameContext(const FTime& Time): WorldBounds{ FRect{FVec2{-960.f, -5
 	_currentState->OnEnter(Time);
 	
 	SharedAI = FAIFactory::FirstAIFactory->MakeAI();
-	Worms.push_back(FWorm({ 100, 100 }));
+
+	FVec2 spawn_offset = { 0, -SPAWN_OFFSET_DISTANCE };
+	Worms.push_back(FWorm(spawn_offset));
 
 	//enemy count
-	for (size_t i = 0; i < 3; i++)
+	for (size_t i = 0; i < NUM_ENEMIES; i++)
 	{
-		Worms.push_back(FWorm({ 100, 150.0f + 50 * i }));
+		Worms.push_back(FWorm({ Rotate(spawn_offset, (i + 1) * 360.0f / (NUM_ENEMIES + 1)) }));
 		AISensors.emplace_back();
 		AIs.push_back(FAIFactory::FirstAIFactory->MakeAI());
 	}
@@ -213,13 +215,55 @@ void GameContext::ChangeState(GameState *state, const FTime& Time)
 	_currentState->OnEnter(Time);
 }
 
-bool GameContext::ProcessOverlaps(const FTime& Time)
+bool GameContext::ProcessDamagedWorms(const FTime& Time)
+{
+	for (int worm_index = (int)Worms.size() - 1; worm_index >= 0; --worm_index)
+	{
+		FWorm& worm = Worms[worm_index];
+
+		if(worm.DeadSegments <= 0)
+			continue;
+
+		if(IsPlayerWorm(&worm))
+			WormParts.emplace_back(WormPart{FWorm{worm.Points.front()}, PLAYER_COLORS });
+		else
+			WormParts.emplace_back(WormPart{ FWorm{worm.Points.front()}, OTHERS_COLORS });
+
+		WormParts.back().Points().clear();
+
+		for(auto it = worm.Points.begin(); it < std::next(worm.Points.begin(), worm.DeadSegments); it++)
+		{
+			auto copy = *it;
+			WormParts.back().Points().emplace_back(copy);				
+		}
+
+		JukeBox.DamageTone(Time, worm.DeadSegments);
+
+		if (worm.DeadSegments >= worm.HP())
+		{
+			if (IsPlayerWorm(&worm))
+			{
+				worm.Points.erase(worm.Points.begin(), std::next(worm.Points.begin(), worm.DeadSegments - 1));
+				worm.DeadSegments = 0;
+				return false;
+			}
+			else
+				Worms.erase(std::next(Worms.begin(), worm_index));
+		}
+		else
+		{
+			worm.Points.erase(worm.Points.begin(), std::next(worm.Points.begin(), worm.DeadSegments));
+			worm.DeadSegments = 0;
+		}
+	}
+
+	return true;
+}
+
+void GameContext::ProcessOverlaps(const FTime& Time)
 {
 	if(Time.DeltaTime == 0)
-		return true;
-
-	if (!Inside(PlayerWorm().HeadPos(), WorldBounds))
-		PlayerWorm().DeadSegments = (int) PlayerWorm().Points.size();
+		return;
 
 	unsigned food_cell_indecies[9]{};
 
@@ -250,16 +294,16 @@ bool GameContext::ProcessOverlaps(const FTime& Time)
 			}
 		}
 	}
-	
+
+	//worm 2 worm
 	for (size_t worm_index = 0; worm_index < Worms.size(); worm_index++)
 	{
 		auto& worm = Worms[worm_index];
 
 		for (size_t another_worm_index = 0; another_worm_index < Worms.size(); another_worm_index++)
 		{
-			if ((GameRules & EGameRules_SelfCollision) == 0)
-				if (worm_index == another_worm_index)
-					continue;
+			if (worm_index == another_worm_index)
+				continue;
 
 			FWorm& another_worm = Worms[another_worm_index];
 			const float contact_distance = (worm.HeadSize() + another_worm.HeadSize()) * .5f;
@@ -272,63 +316,37 @@ bool GameContext::ProcessOverlaps(const FTime& Time)
 				if ((worm.HeadPos() - another_worm.Points[i]).Norm() < contact_distance)
 				{
 					if (GameRules & EGameRules_CollidingIntoWormCutsIt)
-					{
-						JukeBox.DamageTone(Time, i + 1);
 						another_worm.DeadSegments = i + 1;
-					}
 
-					if(GameRules & EGameRules_CollidingIntoWormsKillsYou)
+					if (GameRules & EGameRules_CollidingIntoWormsKillsYou)
 						worm.DeadSegments = (int) worm.Points.size();
 				}
 			}
 		}
 	}
 
+	//bounds
+	for (size_t worm_index = 0; worm_index < Worms.size(); worm_index++)
+		if (!Inside(Worms[worm_index].HeadPos(), WorldBounds))
+			Worms[worm_index].DeadSegments = (int) Worms[worm_index].Points.size();
 
-	for (int worm_index = (int)Worms.size() - 1; worm_index >= 0; --worm_index)
-	{
-		FWorm& worm = Worms[worm_index];
-
-		if(worm.DeadSegments <= 0)
-			continue;
-
-		FVec2 copy = worm.Points.front();
-
-		if(IsPlayerWorm(&worm))
-			WormParts.emplace_back(WormPart{FWorm{copy}, PLAYER_COLORS });
-		else
-			WormParts.emplace_back(WormPart{ FWorm{copy}, OTHERS_COLORS });
-
-		WormParts.back().Points().clear();
-
-		for(auto it = worm.Points.begin(); it < std::next(worm.Points.begin(), worm.DeadSegments); it++)
+	if(GameRules & EGameRules_SelfCollisionCuts || GameRules & EGameRules_SelfCollisionKills)
+		for (size_t worm_index = 0; worm_index < Worms.size(); worm_index++)
 		{
-			copy = *it;
-			WormParts.back().Points().emplace_back(copy);				
-		}
-
-		JukeBox.DamageTone(Time, worm.DeadSegments);
-
-		if (worm.DeadSegments >= worm.HP())
-		{
-			bool player_worm = IsPlayerWorm(&worm);
-			if (player_worm)
+			auto& worm = Worms[worm_index];
+			for (int i = 0; i < worm.Points.size() - 3; i++)
 			{
-				worm.Points.erase(worm.Points.begin(), std::next(worm.Points.begin(), worm.DeadSegments - 1));
-				worm.DeadSegments = 0;
-				return false;
-			}
-			else
-				Worms.erase(std::next(Worms.begin(), worm_index));
-		}
-		else
-		{
-			worm.Points.erase(worm.Points.begin(), std::next(worm.Points.begin(), worm.DeadSegments));
-			worm.DeadSegments = 0;
-		}
-	}
+				if ((worm.HeadPos() - worm.Points[i]).Norm() < worm.HeadSize())
+				{
+					if (GameRules & EGameRules_SelfCollisionCuts)
+						worm.DeadSegments = i + 1;
 
-	return true;
+					if (GameRules & EGameRules_SelfCollisionKills)
+						worm.DeadSegments = (int)worm.Points.size();
+				}
+			}
+		}
+
 }
 
 void GameContext::ProcessDeadParts(const FTime& Time)
@@ -368,7 +386,7 @@ void GameContext::LoopGameOverTheme(const FTime& Time)
 	JukeBox.LoopBass(Time);
 }
 
-void GameContext::PlayOpening(const FTime& Time)
+void GameContext::PlayOpeningCountdown(const FTime& Time)
 {
 	Note highs[] = {
 		{Tone_0, 8},
@@ -422,12 +440,13 @@ bool GameContext::Update(const FVideo& Video, const FAudio& Audio, const FInput&
 	const float ViewPortScale = Video.Width / 1920.0f;
 	FVec2 offset = ViewPortCenter - PlayerWorm().HeadPos() * ViewPortScale;
 	ViewPortTransform = FViewportTransform{offset, ViewPortScale};
-	_currentState->Update(Input, Time);
+
+	const bool keep_playing = _currentState->Update(Input, Time);
 
 	AudioHelp.Mix(Audio);			
 	Render(Video);
-		
-	return 1;
+
+	return keep_playing;
 }
 
 GameContext* Game;
@@ -439,16 +458,14 @@ bool GameUpdate(const FVideo& Video, const FAudio& Audio, const FInput& Input, c
 		Game = new GameContext{ Time };
 		Game->DebugDisplay = EDebugDisplay_MoveTargets;
 		Game->GameRules =
-			EGameRules_CollidingIntoWormsKillsYou 
-			//EGameRules_SelfCollision |
+			EGameRules_CollidingIntoWormsKillsYou
+			//EGameRules_SelfCollision
 			//EGameRules_CollidingIntoWormCutsIt
 			;
 
 	}
 
-	Game->Update(Video, Audio, Input, Time);
-	
-	if (Game->Reset)
+	if (!Game->Update(Video, Audio, Input, Time))
 	{
 		delete Game;
 		Game = nullptr;

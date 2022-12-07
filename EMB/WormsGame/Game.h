@@ -15,6 +15,8 @@
 #define GRID_ROWS 16
 
 #define DEAD_PARTS_UPDATE 1.0 / 12.0f
+#define NUM_ENEMIES 16
+#define SPAWN_OFFSET_DISTANCE 300
 
 #define OTHERS_COLORS { {0xDFBB99, 0xB98704}, {0x774300, 0xB98704} }
 #define PLAYER_COLORS { {0xB2DDBC, 0x72BB7A}, {0x3A6656, 0x72BB7A} }
@@ -39,9 +41,10 @@ enum EDebugDisplay : unsigned
 };
 
 enum EGameRules : unsigned {
-	EGameRules_SelfCollision = 1u << 0,
-	EGameRules_CollidingIntoWormCutsIt = 1u << 1,
-	EGameRules_CollidingIntoWormsKillsYou = 1u << 2
+	EGameRules_SelfCollisionKills = 1u << 0,
+	EGameRules_SelfCollisionCuts = 1u << 1,
+	EGameRules_CollidingIntoWormCutsIt = 1u << 2,
+	EGameRules_CollidingIntoWormsKillsYou = 1u << 3
 };
 
 struct Food
@@ -88,7 +91,6 @@ private:
 
 public:
 
-	bool Reset = false;
 	const FRect WorldBounds;
 	FViewportTransform ViewPortTransform;
 	unsigned DebugDisplay = 0;
@@ -96,13 +98,14 @@ public:
 
 	GameContext(const FTime& Time);
 	void ChangeState(GameState* state, const FTime& Time);
+	bool ProcessDamagedWorms(const FTime& Time);
 	bool Update(const FVideo& Video, const FAudio& Audio, const FInput& Input, const FTime& Time);
 	void UpdateAI(const FTime& Time);
-	bool ProcessOverlaps(const FTime& Time);
+	void ProcessOverlaps(const FTime& Time);
 	void ProcessDeadParts(const FTime& Time);
 	void LoopGameTheme(const FTime& Time);
 	void LoopGameOverTheme(const FTime& Time);
-	void PlayOpening(const FTime& Time);
+	void PlayOpeningCountdown(const FTime& Time);
 
 	inline FWorm& PlayerWorm() {return Worms[0]; }
 	

@@ -6,8 +6,10 @@ FWorm::FWorm(const FVec2& HeadPosition)
 {
 	constexpr int num_segments = 5;
 
+	FVec2 spawn_offset = -Normalize(HeadPosition) * HeadSize();
+
 	for (int i = num_segments; i >= 0; --i)
-		Points.push_back(HeadPosition + FVec2{ -HeadSize() *.5f * i, 0.0f });
+		Points.push_back(HeadPosition + spawn_offset * .5f * (float)i);
 }
 
 FVec2 FWorm::HeadPosImpl() const

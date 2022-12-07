@@ -6,7 +6,7 @@ struct GameContext;
 struct GameState
 {
 	virtual ~GameState() {}
-	virtual void Update(const FInput& Input, const FTime& Time);
+	virtual bool Update(const FInput& Input, const FTime& Time);
 	virtual void OnEnter(const FTime& Time);
 	inline void SetContext(GameContext* game_context) { _gameContext = game_context; }
 	
@@ -19,17 +19,17 @@ protected:
 struct IntroState : public GameState
 {
 	void OnEnter(const FTime& Time);
-	void Update(const FInput& Input, const FTime& Time) override;
+	bool Update(const FInput& Input, const FTime& Time) override;
 };
 
 struct PlaybleState : public GameState
 {
 	void OnEnter(const FTime& Time);
-	void Update(const FInput& Input, const FTime& Time) override;
+	bool Update(const FInput& Input, const FTime& Time) override;
 };
 
 struct GameOverState : public GameState
 {
 	void OnEnter(const FTime& Time);
-	void Update(const FInput& Input, const FTime& Time) override;
+	bool Update(const FInput& Input, const FTime& Time) override;
 };
