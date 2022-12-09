@@ -112,7 +112,7 @@ struct IWormAI
 	// Called every frame. In this call the AI should use the sensor to get
 	// knowledge of its surroundings, make decisions and move the worm accordingly.
 	void Update(const FTime& Time) { UpdateImpl(Time); }
-
+	
 	virtual ~IWormAI() {}
 private:
 	virtual void PossessImpl(IWorm& Worm, IWormAISensor& WormAISensor) = 0;

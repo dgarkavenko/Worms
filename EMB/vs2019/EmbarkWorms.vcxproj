@@ -75,6 +75,7 @@
     <ClInclude Include="..\WormsGame\Game.h" />
     <ClInclude Include="..\WormsGame\GameState.h" />
     <ClInclude Include="..\WormsGame\JukeBox.h" />
+    <ClInclude Include="..\WormsGame\WormAI.h" />
     <ClInclude Include="..\WormsLib\TinyPixelNoise.h" />
     <ClInclude Include="..\WormsLib\Worms.h" />
     <ClInclude Include="..\WormsLib\WormsAudioHelp.h" />

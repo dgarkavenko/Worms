@@ -4,7 +4,6 @@
 #include "JukeBox.h"
 #include "WormsLib/WormsVideoHelp.h"
 #include "vs2019/VecMath.h"
-#include "vs2019/Logger.h"
 
 GameContext::GameContext(const FTime& Time): WorldBounds{ FRect{FVec2{-960.f, -540.f}, FVec2{960.f, 540.f}} }
                                              , AudioHelp{}
@@ -135,20 +134,19 @@ void GameContext::Render(const FVideo& Video)
 			FVec2 lerped_direction = worm.HeadPos() + worm.MoveDirection * worm.MovementSpeed[0];
 			Dots(Video, Video.ViewPort(), ViewPortTransform, 1, &worm.InputTargetPosition, 0, &Size1, 0, &Color1, 0);
 			Dots(Video, Video.ViewPort(), ViewPortTransform, 1, &lerped_direction, 0, &Size2, 0, &Color2, 0);
-
 		}
 	}
 
 	if (DebugDisplay & EDebugDisplay_FoodBroadphase)
 	{
-		unsigned food_cell_indecies[9]{};
+		unsigned food_cell_indicies[9]{};
 
 		auto& worm = PlayerWorm();
-		unsigned food_cells_count = GetAdjacentFoodCells(worm.HeadPos(), &food_cell_indecies[0]);
+		unsigned food_cells_count = GetAdjacentFoodCells(worm.HeadPos(), &food_cell_indicies[0]);
 
 		for (unsigned j = 0; j < food_cells_count; j++)
 		{
-			auto& food_cell = *FoodGridPtrs[food_cell_indecies[j]];
+			auto& food_cell = *FoodGridPtrs[food_cell_indicies[j]];
 			for (size_t food_index = 0; food_index < food_cell.size(); food_index++)
 			{
 				const auto& food = food_cell[food_index];
@@ -158,49 +156,132 @@ void GameContext::Render(const FVideo& Video)
 			}
 		}
 	}
+
+	if (DebugDisplay & EDebugDisplay_AI)
+		for (unsigned i = 1; i < AIs.size(); i++)
+		{
+			//auto ptr = AIs[0].get();
+			//FWormAI* derived = static_cast<FWormAI*>(ptr);
+			//derived;
+			for (unsigned j = 0; j < 32; j++)
+			{
+				const FVec2 dir = DirectionFronQuantanized(j, 32) * 100.0f + Worms[i].HeadPos();
+				float Size = 10 + std::max(0.0f, Worms[i].QunatinizedDirection[j] + 10) / 5.0f;
+				float green = std::max(0.0f, Worms[i].QunatinizedDirection[j] + 10) / 110.0f;
+				const auto Color = FColor{ (uint8_t)((1-green) * 255), (uint8_t)((green) * 255), 0 };
+				Dots(Video, Video.ViewPort(), ViewPortTransform, 1, &dir, 0, &Size, 0, &Color, 0);
+			}
+		}
+}
+
+bool GameContext::RaycastWalls(const FVec2& senseDirection, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out)
+{
+	auto OutsideDistance = std::min(
+		std::min(WorldBounds.End.X - rayEndPoint.X, rayEndPoint.X - WorldBounds.Begin.X),
+		std::min(WorldBounds.End.Y - rayEndPoint.Y, rayEndPoint.Y - WorldBounds.Begin.Y));
+
+	if (OutsideDistance < 0.0f)
+	{
+		out = FSenseResult{
+			ESenseHitType::Wall,
+			rayStart,
+			senseDirection,
+			100.0f + OutsideDistance,
+			0 };
+		return true;
+	}
+
+	return false;
+}
+
+bool GameContext::RaycastWorms(const FVec2& senseDirection, const int wormIndex, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out)
+{
+	for (size_t i = 0; i < Worms.size(); i++)
+	{
+		if(wormIndex == i)
+			continue;
+
+		if(LineIntersectsRectangle(rayStart, rayEndPoint, Worms[i].HeadSize(), Worms[i].Bounds))
+		{
+			for (FVec2 point : Worms[i].Points)
+			{
+				if(LineIntersectsCircle(rayStart, rayEndPoint, Worms[wormIndex].HeadSize() * .5f, point, Worms[i].HeadSize() * .5f))
+				{
+					out = FSenseResult{
+					ESenseHitType::Worm,
+					rayStart,
+					senseDirection,
+					100.0f,
+					0 };
+					return true;
+				}				
+			}			
+		}
+	}
+
+	return false;
+}
+
+bool GameContext::RaycastFood(const FVec2& senseDirection, const FVec2& rayStart, const FVec2& rayEndPoint, float cast_width, FSenseResult& out)
+{
+	unsigned food_cell_indicies[9]{};
+
+	unsigned food_cells_count = GetAdjacentFoodCells(rayStart, &food_cell_indicies[0]);
+	for (unsigned j = 0; j < food_cells_count; j++)
+	{
+		auto& food_cell = *FoodGridPtrs[food_cell_indicies[j]];
+		for (size_t food_index = 0; food_index < food_cell.size(); food_index++)
+		{
+			const auto& food = food_cell[food_index];
+			if (LineIntersectsCircle(rayStart, rayEndPoint, cast_width, food.Position, FWormsVideoHelp::FoodRadius(3)))
+			{
+				out = FSenseResult{
+					ESenseHitType::Food,
+					rayStart,
+					senseDirection,
+					(rayStart - food.Position).Norm(),
+					food.Value };
+
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool GameContext::ProcessSenseDirection(const FVec2& senseDirection, const int wormIndex, FSenseResult& result)
+{
+	const auto& rayStart = Worms[wormIndex].HeadPos();
+	const auto rayEndPoint = rayStart + senseDirection * 200.0f;
+				
+	if (RaycastWalls(senseDirection, rayStart,  rayEndPoint, result))
+		return true;
+						
+	if (RaycastWorms(senseDirection, wormIndex, rayStart,  rayEndPoint, result))
+		return true;
+
+	if (RaycastFood(senseDirection, rayStart, rayEndPoint, Worms[wormIndex].HeadSize(), result))
+		return true;
+
+	return false;
 }
 
 void GameContext::UpdateAI(const FTime& Time)
 {
-	// Process all the ray casts requested from AIs		
-	// Clear results from last update
-
 	for (size_t i = 1; i < Worms.size(); i++)
 	{
-		auto& ai = AIs[i - 1];
-		ai->Possess(Worms[i], AISensors[i - 1]);
-		auto SenseDirections = AISensors[i-1].TakeSenseDirections();
+		std::unique_ptr<IWormAI>& ai = AIs[i - 1];
+		auto& sensor = AISensors[i - 1];
+		ai->Possess(Worms[i], sensor);
+		auto senseDirections = sensor.TakeSenseDirections();
 
-		for (FVec2& SenseDirection : SenseDirections)
+		for (FVec2& senseDirection : senseDirections)
 		{
-			auto RayStart = Worms[i].HeadPos();
-			auto RayEndPoint = RayStart + SenseDirection * 100.0f;
-			auto OutsideDistance = std::min(
-				std::min(WorldBounds.End.X - RayEndPoint.X, RayEndPoint.X - WorldBounds.Begin.X),
-				std::min(WorldBounds.End.Y - RayEndPoint.Y, RayEndPoint.Y - WorldBounds.Begin.Y));
-			if (OutsideDistance < 0.0f)
-				AISensors[i - 1].AddSenseResult(FSenseResult{ ESenseHitType::Wall, RayStart, SenseDirection, 100.0f + OutsideDistance, 0 });
+			FSenseResult result = {};
 
-			unsigned food_cell_indecies[9]{};
-
-			unsigned food_cells_count = GetAdjacentFoodCells(RayStart, &food_cell_indecies[0]);
-			for (unsigned j = 0; j < food_cells_count; j++)
-			{
-				auto& food_cell = *FoodGridPtrs[food_cell_indecies[j]];
-				for (size_t food_index = 0; food_index < food_cell.size(); food_index++)
-				{
-					const auto& food = food_cell[food_index];
-					if (Intersects(RayStart, RayEndPoint, food.Position, FWormsVideoHelp::FoodRadius(3)))
-						AISensors[i - 1].AddSenseResult(
-							FSenseResult{ ESenseHitType::Food,
-							RayStart,
-							Normalize((food.Position - RayStart)),
-							(RayStart - food.Position).Norm(),
-							food.Value });
-
-				}
-			}
-
+			if (ProcessSenseDirection(senseDirection, (int)i, result))
+				sensor.AddSenseResult(result);
 		}
 
 		ai->Update(Time);
@@ -265,16 +346,16 @@ void GameContext::ProcessOverlaps(const FTime& Time)
 	if(Time.DeltaTime == 0)
 		return;
 
-	unsigned food_cell_indecies[9]{};
+	unsigned food_cell_indicies[9]{};
 
 	// food
 	for (size_t worm_index = 0; worm_index < Worms.size(); worm_index++)
 	{
 		auto& worm = Worms[worm_index];
-		unsigned food_cells_count = GetAdjacentFoodCells(worm.HeadPos(), &food_cell_indecies[0]);
+		unsigned food_cells_count = GetAdjacentFoodCells(worm.HeadPos(), &food_cell_indicies[0]);
 		for (unsigned j = 0; j < food_cells_count; j++)
 		{
-			auto& food_cell = *FoodGridPtrs[food_cell_indecies[j]];
+			auto& food_cell = *FoodGridPtrs[food_cell_indicies[j]];
 			for (size_t food_index = 0; food_index < food_cell.size(); food_index++)
 			{
 				const auto& food = food_cell[food_index];								

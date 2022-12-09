@@ -15,7 +15,7 @@
 #define GRID_ROWS 16
 
 #define DEAD_PARTS_UPDATE 1.0 / 12.0f
-#define NUM_ENEMIES 16
+#define NUM_ENEMIES 4
 #define SPAWN_OFFSET_DISTANCE 300
 
 #define OTHERS_COLORS { {0xDFBB99, 0xB98704}, {0x774300, 0xB98704} }
@@ -31,13 +31,15 @@ enum EDebugDisplay : unsigned
 	EDebugDisplay_BoundingBoxes = 1u << 1,
 	EDebugDisplay_FoodBroadphase = 1u << 2,
 	EDebugDisplay_MoveTargets = 1u << 3,
+	EDebugDisplay_AI = 1u << 4,
 
 
 	EDebugDisplay_Full =
 		EDebugDisplay_Breadcrumbs |
 		EDebugDisplay_BoundingBoxes |
 		EDebugDisplay_FoodBroadphase |
-		EDebugDisplay_MoveTargets
+		EDebugDisplay_MoveTargets |
+		EDebugDisplay_AI
 };
 
 enum EGameRules : unsigned {
@@ -84,6 +86,11 @@ private:
 	std::unique_ptr<IWormAI> SharedAI;
 
 	void Render(const FVideo& Video);
+	
+	bool ProcessSenseDirection(const FVec2& senseDirection, const int wormIndex, FSenseResult& result);
+	bool RaycastWalls(const FVec2& senseDirection, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out);
+	bool RaycastWorms(const FVec2& senseDirection, const int wormIndex, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out);
+	bool RaycastFood(const FVec2& senseDirection, const FVec2& rayStart, const FVec2& rayEndPoint, float cast_width, FSenseResult& out);
 
 	std::vector<Food>& GetFoodCell(FVec2 position);
 	unsigned GetAdjacentFoodCells(FVec2 position, unsigned cells[9]);

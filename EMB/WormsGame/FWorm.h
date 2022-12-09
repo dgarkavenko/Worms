@@ -4,6 +4,9 @@
 
 struct FWorm : public IWorm
 {
+
+	float QunatinizedDirection[32];
+
 	int DeadSegments = 0;
 	float MovementSpeed[2] = {150, 250};
 	float RotationSpeed[2] = { 3, 1.5 };

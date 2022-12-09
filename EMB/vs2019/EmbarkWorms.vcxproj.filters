@@ -76,6 +76,9 @@
     <ClInclude Include="Logger.h">
       <Filter>WormsLib - Do not modify!</Filter>
     </ClInclude>
+    <ClInclude Include="..\WormsGame\WormAI.h">
+      <Filter>WormsGame</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.gitignore">
