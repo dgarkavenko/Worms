@@ -97,7 +97,7 @@ void FWormAI::UpdateImpl(const FTime& Time)
 			{
 				const float index_offset = (float)std::abs(index - sidechain);
 				float& attractiveness = DirectionAttractiveness[SAFE_DIRECTION(sidechain)];
-				float base_penalty = inverse_lerp(HAZARD_ATTRACTIVENESS_PENALTY_MIN_AT, HAZARD_ATTRACTIVENESS_PENALTY_MAX_AT, sensor.HitDistanceFromHead);
+				float base_penalty = inverse_lerp(HAZARD_ATTRACTIVENESS_PENALTY_STARTS_AT, HAZARD_ATTRACTIVENESS_PENALTY_MAX_AT, sensor.HitDistanceFromHead);
 				attractiveness = std::min(MIN_ATTRACTIVENESS * base_penalty / (1.0f + index_offset), attractiveness);
 			}
 		}
@@ -123,11 +123,13 @@ void FWormAI::UpdateImpl(const FTime& Time)
 			squared_attractivness[i] = squared_attractivness[i] > 0 ? squared_attractivness[i] * squared_attractivness[i] : 0;
 
 		QuantinizedDirection = GetRandomIndex(squared_attractivness, NUM_DIRECTIONS);
-		if(QuantinizedDirection > 0)
-		{
-			Destination = Worm->HeadPos() + DirectionFronQuantanized(QuantinizedDirection, NUM_DIRECTIONS) * RAYCAST_DISTANCE;
-			decision_timeout = DESTINATION_UPDATE_TIMEOUT;
-		}
+
+		if (QuantinizedDirection <= 0)
+			QuantinizedDirection = RandomInt(0, NUM_DIRECTIONS);
+		
+		Destination = Worm->HeadPos() + DirectionFronQuantanized(QuantinizedDirection, NUM_DIRECTIONS) * RAYCAST_DISTANCE;
+		decision_timeout = DESTINATION_UPDATE_TIMEOUT;
+		
 	}
 
 	Worm->MoveTowards(Time, Destination, false);
