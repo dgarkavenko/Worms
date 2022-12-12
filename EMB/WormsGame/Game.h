@@ -1,9 +1,7 @@
 #pragma once
 
-#include <algorithm>
 #include "FWorm.h"
 #include "JukeBox.h"
-#include "WormsLib/WormsVideoHelp.h"
 #include "WormsLib/WormsAudioHelp.h"
 #include "WormsLib/TinyPixelNoise.h"
 #include "WormsLib/Worms.h"
@@ -15,8 +13,9 @@
 #define GRID_ROWS 16
 
 #define DEAD_PARTS_UPDATE 1.0 / 12.0f
-#define NUM_ENEMIES 4
-#define SPAWN_OFFSET_DISTANCE 300
+#define NUM_ENEMIES 7
+#define SPAWN_OFFSET_DISTANCE 350
+#define SELF_COLLISION_OFFSET 10
 
 #define OTHERS_COLORS { {0xDFBB99, 0xB98704}, {0x774300, 0xB98704} }
 #define PLAYER_COLORS { {0xB2DDBC, 0x72BB7A}, {0x3A6656, 0x72BB7A} }

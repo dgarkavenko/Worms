@@ -1,4 +1,7 @@
 #include "JukeBox.h"
+
+#include <vector>
+
 #include "WormsLib/TinyPixelNoise.h"
 #include "WormsLib/WormsAudioHelp.h"
 
@@ -129,7 +132,7 @@ void JukeBox::LoopBass(const FTime& Time)
 		{Tone_0, 32},
 	};
 
-	_bass_loop_timeout = PlayTune(bass, sizeof(bass) / sizeof(Note), 100, Time.ElapsedTime);
+	_bass_loop_timeout = PlayTune(bass, sizeof(bass) / sizeof(Note), DEFAULT_BPM, Time.ElapsedTime);
 }
 
 void JukeBox::LoopHighs(const FTime& Time)
@@ -157,7 +160,7 @@ void JukeBox::LoopHighs(const FTime& Time)
 		{Tone_0, 16}
 	};
 
-	_highs_loop_timeout = PlayTune(highs, sizeof(highs) / sizeof(Note), 100, Time.ElapsedTime);
+	_highs_loop_timeout = PlayTune(highs, sizeof(highs) / sizeof(Note), DEFAULT_BPM, Time.ElapsedTime);
 
 }
 
@@ -169,12 +172,15 @@ void JukeBox::DamageTone(const FTime& Time, int value)
 	const int max_strength = 4;
 
 	Tone tones[] = { Tone_E4, Tone_F4, Tone_G4, Tone_A4, Tone_B4, Tone_C5, Tone_D5, Tone_E5, Tone_F5 };
-	int strength = std::min(max_strength, 1 + (int) (value / 10));
+	int strength = std::min(max_strength, 1 + (int) (value / 8));
 
-	Note tune[3]{
-		{ tones[RandomInt(2 + strength, 4 + strength)], 8.0f },
-		{ tones[RandomInt(strength, 2 + strength)], 8.0f},
-		{ tones[RandomInt(0, 2)], 8.0f} };
-	
-	AddToSequence(tune, 3, 100, Time);
+	std::vector<Note> tune_vec{};
+
+	for (size_t i = 0; i < strength + 2; i++)
+	{
+		Note note = { tones[RandomInt(0, 4 + strength)], 8.0f * RandomInt(1,3) };
+		tune_vec.emplace_back(note);
+	}
+
+	AddToSequence(tune_vec.data(), (int)tune_vec.size(), DEFAULT_BPM, Time);
 }

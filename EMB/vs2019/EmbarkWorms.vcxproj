@@ -81,7 +81,7 @@
     <ClInclude Include="..\WormsLib\WormsAudioHelp.h" />
     <ClInclude Include="..\WormsLib\WormsVideoHelp.h" />
     <ClInclude Include="Logger.h" />
-    <ClInclude Include="VecMath.h" />
+    <ClInclude Include="HandyUtils.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.gitignore" />

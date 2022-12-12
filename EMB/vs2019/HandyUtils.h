@@ -16,6 +16,11 @@ template <typename T> int sign(T val)
 	return (T(0) < val) - (val < T(0));
 }
 
+template <typename T>
+float inverse_lerp(const T& start, const T& end, const T& value) {
+	return std::clamp((value - start) / (end - start), (T)0, (T)1);
+}
+
 inline FVec2 LerpVectorRotation(const FVec2 &from, const FVec2 &to, float t)
 {
 	float from_radians = atan2(from.Y, from.X);

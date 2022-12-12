@@ -1,6 +1,6 @@
 #include "FWorm.h"
 
-#include "vs2019/VecMath.h"
+#include "vs2019/HandyUtils.h"
 
 FWorm::FWorm(const FVec2& HeadPosition)
 {
@@ -56,14 +56,32 @@ void FWorm::AddToBounds(FVec2 vec2)
 	Bounds.End.Y = std::max(bounds.End.Y, Bounds.End.Y);
 }
 
-void FWorm::MoveTowardsImpl(const FTime& Time, const FVec2& Pos, bool Boost)
+void FWorm::ConsumeForBoost()
 {
+	if(Points.size() > MIN_SEGMENTS_COUNT_TO_BOOST)
+	{
+		boost_remaining = BOOST_PER_SEGMENT;
+		Points.erase(Points.begin());
+	}
+}
+
+void FWorm::MoveTowardsImpl(const FTime& Time, const FVec2& Pos, bool boost)
+{
+	if (boost)
+	{
+		if(boost_remaining < 0)
+			ConsumeForBoost();
+
+		boost = boost_remaining > 0;
+		boost_remaining -= Time.DeltaTime;
+	}
+
 	InputTargetPosition = Pos;
 	FVec2 target_direction = Normalize(Pos - HeadPos());
 
-	MoveDirection = ShortestAngleInterpolation(MoveDirection, target_direction, RotationSpeed[Boost] * (float)Time.DeltaTime);
+	MoveDirection = ShortestAngleInterpolation(MoveDirection, target_direction, RotationSpeed[boost] * (float)Time.DeltaTime);
 
-	float speed = MovementSpeed[Boost] * (float)Time.DeltaTime;
+	float speed = MovementSpeed[boost] * (float)Time.DeltaTime;
 	float distance_between = HeadSize() * .5f;
 		
 	Points.back() += MoveDirection * speed;

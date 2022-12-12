@@ -1,9 +1,11 @@
 #pragma once
 
-#define PLAYBKAC_SIZE (1 << 6)
+#define PLAYBKAC_SIZE (1 << 7)
 
 #define RING_BUFFER_ADVANCE(var, mask) \
 	(var) = ((var) + 1) & (mask)
+
+#define DEFAULT_BPM 100
 
 struct FWormsAudioHelp;
 struct FTime;

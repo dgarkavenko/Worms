@@ -1,10 +1,36 @@
-#include "vs2019/VecMath.h"
+#pragma once
+#include "vs2019/HandyUtils.h"
 #include "WormsLib/Worms.h"
 #include "Game.h"
-#include <numeric>
 
 #define NUM_RAYCASTS_PER_FRAME 8
+#define RAYCAST_PRECISSION 10
+
 #define NUM_DIRECTIONS 32
+#define RAYCAST_DISTANCE 200.0f
+#define DESTINATION_UPDATE_TIMEOUT 3.5f
+
+#define MAX_ATTRACTIVENESS 100.0f
+#define MIN_ATTRACTIVENESS -100.0f
+#define ATTRACTIVENESS_DETERIORATION 30.0f
+#define BASE_FOOD_ATTRACTIVENESS 6.0f
+
+#define HAZARD_SIDECHAINING 30.0f
+#define HAZARD_ATTRACTIVENESS_PENALTY_MIN_AT 210.0f
+#define HAZARD_ATTRACTIVENESS_PENALTY_MAX_AT 50.0f
+#define ESCAPE_DIRECTION_ATTRACTIVENESS_COEF 2.0f
+
+#define SAFE_DIRECTION(var) \
+	((var < 0) ? var + NUM_DIRECTIONS : var) % NUM_DIRECTIONS
+
+#define LEFT(var) \
+	SAFE_DIRECTION(var-1)
+
+#define RIGHT(var) \
+	SAFE_DIRECTION(var+1)
+
+#define OPPOSITE(var) \
+	SAFE_DIRECTION(var + NUM_DIRECTIONS / 2)
 
 struct ExtraHitData
 {
@@ -29,102 +55,23 @@ struct ExtraHitData
 	}
 };
 
-
 struct FWormAI : public IWormAI
 {
-	int step = 0;
-	double new_direction = 0;
+
+private:
+	const FVec2 right = { -1, 0 };
+	double decision_timeout = 0;
+	int accumulated_raycast_offset = 0;
+
+public:
 	IWorm* Worm = nullptr;
 	IWormAISensor* WormAISensor = nullptr;
-	float DirectionAttractiveness[NUM_DIRECTIONS]={30};
-	int QunatinizedDirection;
+	float DirectionAttractiveness[NUM_DIRECTIONS]{0};
+	int QuantinizedDirection;
+	FVec2 Destination = { 1, 0};
 
-	void PossessImpl(IWorm& InWorm, IWormAISensor& InWormAISensor) override
-	{
-		Worm = &InWorm;
-		WormAISensor = &InWormAISensor;
-	}
-
-	void UpdateImpl(const FTime& Time) override
-	{
-		//FVec2 forward = Worm->FacingDirection();
-		FVec2 right = { -1, 0 };
-		std::vector<FVec2> SenseRays;
-		new_direction -= Time.DeltaTime;
-		step++;
-
-		for (int i = 0; i < NUM_RAYCASTS_PER_FRAME; i++)
-			SenseRays.emplace_back(Rotate(right, (float)i * 15 + (step % 3) * 90));
-				
-		WormAISensor->Sense(SenseRays);
-
-		for (unsigned i = 0; i < NUM_DIRECTIONS; i++)
-		{
-			float target = 30;
-			int s = sign(target - DirectionAttractiveness[i]);
-			DirectionAttractiveness[i] += (float)s * (float)Time.DeltaTime * 10;
-		}
-
-		
-		//for (const FSenseResult& sensor : WormAISensor->SenseResults())
-		//{
-		//	int index = Quantanize(sensor.RayDir, NUM_DIRECTIONS);
-		//	float& attractiveness = DirectionAttractiveness[index];
-		//	attractiveness = 20.0f + 30.0f * sensor.FoodValue;
-
-		//}
-
-		for (const FSenseResult& sensor : WormAISensor->SenseResults())
-		{
-			int index = Quantanize(sensor.RayDir, NUM_DIRECTIONS);
-
-			auto hitData = ExtraHitData{ sensor };
-
-			if (sensor.HitType == ESenseHitType::Wall || sensor.HitType == ESenseHitType::Worm)
-			{
-				DirectionAttractiveness[(index + 16) % NUM_DIRECTIONS] = 60;
-				DirectionAttractiveness[(index + 15) % NUM_DIRECTIONS] = 50;
-				DirectionAttractiveness[(index + 14) % NUM_DIRECTIONS] = 50;
-			}
-		}
-
-		for (const FSenseResult& sensor : WormAISensor->SenseResults()) 
-		{
-			int index = Quantanize(sensor.RayDir, NUM_DIRECTIONS);
-						
-			float& attractiveness = DirectionAttractiveness[index];
-			auto hitData = ExtraHitData{ sensor };
-
-			if (sensor.HitType == ESenseHitType::Wall || sensor.HitType == ESenseHitType::Worm)
-			{
-				attractiveness = 0;
-
-				DirectionAttractiveness[(index + 2) % NUM_DIRECTIONS] = -10;
-				DirectionAttractiveness[(index + 1) % NUM_DIRECTIONS] = -10;
-				DirectionAttractiveness[(index - 1) % NUM_DIRECTIONS] = -10;
-				DirectionAttractiveness[(index - 2) % NUM_DIRECTIONS] = -10;
-
-			}		
-		}
-
-		if(new_direction <= 0 ||
-			DirectionAttractiveness[QunatinizedDirection] < 0 ||
-			DirectionAttractiveness[(QunatinizedDirection - 1) % NUM_DIRECTIONS] < 0 ||
-			DirectionAttractiveness[(QunatinizedDirection + 1) % NUM_DIRECTIONS] < 0 ||
-			DirectionAttractiveness[(QunatinizedDirection + 2) % NUM_DIRECTIONS] < 0 ||
-			DirectionAttractiveness[(QunatinizedDirection - 2) % NUM_DIRECTIONS] < 0)
-		{
-			QunatinizedDirection = GetRandomIndex(DirectionAttractiveness, NUM_DIRECTIONS);
-			new_direction = 1;
-		}
-
-		FVec2 destination = DirectionFronQuantanized(QunatinizedDirection, NUM_DIRECTIONS) * 400;
-		Worm->MoveTowards(Time, destination, false);
-
-		FWorm* derived_worm = static_cast<FWorm*>(Worm);
-		std::copy(std::begin(DirectionAttractiveness), std::end(DirectionAttractiveness), std::begin(derived_worm->QunatinizedDirection));
-	}
+	void PossessImpl(IWorm& InWorm, IWormAISensor& InWormAISensor) override;
+	void UpdateSenseDirections(const FTime& Time);
+	void UpdateImpl(const FTime& Time) override;
 };
-
-FAIFactoryRegistration<FWormAI> WormAIFactory("Worm AI");
 

@@ -1,16 +1,17 @@
 #pragma once
 #include "WormsLib/Worms.h"
 
+#define BOOST_PER_SEGMENT 0.25
+#define MIN_SEGMENTS_COUNT_TO_BOOST 5
 
 struct FWorm : public IWorm
 {
-
-	float QunatinizedDirection[32];
-
 	int DeadSegments = 0;
-	float MovementSpeed[2] = {150, 250};
-	float RotationSpeed[2] = { 3, 1.5 };
+	float MovementSpeed[2] = {120, 220};
+	float RotationSpeed[2] = { 4, 2 };
 
+	double boost_remaining = 0;
+	
 	FVec2 InputTargetPosition{ 0,0 };
 	FVec2 MoveDirection{ 0,0 };
 	FRect Bounds;
@@ -35,5 +36,7 @@ private:
 	void extrapolate_remaining_segments(int i);
 
 	void AddToBounds(FVec2 vec2);
-	void MoveTowardsImpl(const FTime& Time, const FVec2& Pos, bool Boost) override;
+
+	void ConsumeForBoost();
+	void MoveTowardsImpl(const FTime& Time, const FVec2& Pos, bool boost) override;
 };

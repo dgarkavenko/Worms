@@ -67,7 +67,7 @@
     <ClInclude Include="..\WormsGame\FWorm.h">
       <Filter>WormsGame</Filter>
     </ClInclude>
-    <ClInclude Include="VecMath.h">
+    <ClInclude Include="HandyUtils.h">
       <Filter>WormsGame</Filter>
     </ClInclude>
     <ClInclude Include="..\WormsGame\GameState.h">

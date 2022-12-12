@@ -2,8 +2,9 @@
 #include "Game.h"
 #include "iostream"
 #include "JukeBox.h"
+#include "WormAI.h"
 #include "WormsLib/WormsVideoHelp.h"
-#include "vs2019/VecMath.h"
+#include "vs2019/HandyUtils.h"
 
 GameContext::GameContext(const FTime& Time): WorldBounds{ FRect{FVec2{-960.f, -540.f}, FVec2{960.f, 540.f}} }
                                              , AudioHelp{}
@@ -91,7 +92,7 @@ void GameContext::Render(const FVideo& Video)
 	}
 	
 	for (auto& worm : Worms)
-		FWormsVideoHelp::Worm(Video, Video.ViewPort(), ViewPortTransform, IsPlayerWorm(&worm), worm.HeadSize() / 2.0f, worm.Points.size(), worm.Points.data(), nullptr);
+		FWormsVideoHelp::Worm(Video, Video.ViewPort(), ViewPortTransform, IsPlayerWorm(&worm), worm.HeadSize() / 2.0f, worm.Points.size(), worm.Points.data(), &worm.InputTargetPosition);
 
 	for (auto& worm_parts : WormParts)
 	{
@@ -157,21 +158,34 @@ void GameContext::Render(const FVideo& Video)
 		}
 	}
 
+	
 	if (DebugDisplay & EDebugDisplay_AI)
-		for (unsigned i = 1; i < AIs.size(); i++)
+		for (unsigned i = 0; i < AIs.size(); i++)
 		{
-			//auto ptr = AIs[0].get();
-			//FWormAI* derived = static_cast<FWormAI*>(ptr);
-			//derived;
-			for (unsigned j = 0; j < 32; j++)
-			{
-				const FVec2 dir = DirectionFronQuantanized(j, 32) * 100.0f + Worms[i].HeadPos();
-				float Size = 10 + std::max(0.0f, Worms[i].QunatinizedDirection[j] + 10) / 5.0f;
-				float green = std::max(0.0f, Worms[i].QunatinizedDirection[j] + 10) / 110.0f;
-				const auto Color = FColor{ (uint8_t)((1-green) * 255), (uint8_t)((green) * 255), 0 };
-				Dots(Video, Video.ViewPort(), ViewPortTransform, 1, &dir, 0, &Size, 0, &Color, 0);
-			}
-		}
+			auto ptr = AIs[i].get();
+			FWormAI* derived = static_cast<FWormAI*>(ptr);
+
+			if (derived->Worm)
+				for (int j = 0; j < 32; j++)
+				{
+					float value = std::clamp(derived->DirectionAttractiveness[j], -100.0f, 100.0f);
+					float offset = derived->QuantinizedDirection == j ? 110.0f : 100.0f;
+					const FVec2 position = DirectionFronQuantanized(j, 32) * offset + Worms[i + 1].HeadPos();
+					float Size = 5 + std::abs(value / 10.0f);
+
+					auto color = FColor{ 255,255, 255 };
+
+					float normal_attractiveness = value / 100.0f;
+					float abs_attractiveness = (1.0f - std::abs(normal_attractiveness));
+
+					if(normal_attractiveness < 0)
+						color = FColor{ 255, (uint8_t)(255 * abs_attractiveness), (uint8_t)(255 * abs_attractiveness) };
+					else if (normal_attractiveness > 0)
+						color = FColor{ (uint8_t)(255 * abs_attractiveness), 255, (uint8_t)(255 * abs_attractiveness) };
+					
+					Dots(Video, Video.ViewPort(), ViewPortTransform, 1, &position, 0, &Size, 0, &color, 0);
+				}
+		}	
 }
 
 bool GameContext::RaycastWalls(const FVec2& senseDirection, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out)
@@ -199,7 +213,27 @@ bool GameContext::RaycastWorms(const FVec2& senseDirection, const int wormIndex,
 	for (size_t i = 0; i < Worms.size(); i++)
 	{
 		if(wormIndex == i)
-			continue;
+		{
+			if(GameRules & EGameRules_SelfCollisionCuts || GameRules & EGameRules_SelfCollisionKills)
+			{
+				for (int point_index = 0; point_index < (int)Worms[i].Points.size() - SELF_COLLISION_OFFSET; point_index++)
+				{
+					FVec2 point = Worms[i].Points[point_index];
+					if (LineIntersectsCircle(rayStart, rayEndPoint, Worms[wormIndex].HeadSize() * .5f, point, Worms[i].HeadSize() * .5f))
+					{
+						out = FSenseResult{
+						ESenseHitType::Worm,
+						rayStart,
+						senseDirection,
+						GameRules & EGameRules_SelfCollisionKills ? (rayStart - point).Norm() : RAYCAST_DISTANCE,
+						0 };
+						return true;
+					}
+				}
+				continue;
+			}else
+				continue;
+		}
 
 		if(LineIntersectsRectangle(rayStart, rayEndPoint, Worms[i].HeadSize(), Worms[i].Bounds))
 		{
@@ -211,7 +245,7 @@ bool GameContext::RaycastWorms(const FVec2& senseDirection, const int wormIndex,
 					ESenseHitType::Worm,
 					rayStart,
 					senseDirection,
-					100.0f,
+					(rayStart-point).Norm(),
 					0 };
 					return true;
 				}				
@@ -253,7 +287,7 @@ bool GameContext::RaycastFood(const FVec2& senseDirection, const FVec2& rayStart
 bool GameContext::ProcessSenseDirection(const FVec2& senseDirection, const int wormIndex, FSenseResult& result)
 {
 	const auto& rayStart = Worms[wormIndex].HeadPos();
-	const auto rayEndPoint = rayStart + senseDirection * 200.0f;
+	const auto rayEndPoint = rayStart + senseDirection * RAYCAST_DISTANCE;
 				
 	if (RaycastWalls(senseDirection, rayStart,  rayEndPoint, result))
 		return true;
@@ -328,8 +362,10 @@ bool GameContext::ProcessDamagedWorms(const FTime& Time)
 				worm.DeadSegments = 0;
 				return false;
 			}
-			else
-				Worms.erase(std::next(Worms.begin(), worm_index));
+
+			AIs[worm_index - 1].release();
+			AIs.erase(std::next(AIs.begin(), worm_index-1));
+			Worms.erase(std::next(Worms.begin(), worm_index));
 		}
 		else
 		{
@@ -415,7 +451,7 @@ void GameContext::ProcessOverlaps(const FTime& Time)
 		for (size_t worm_index = 0; worm_index < Worms.size(); worm_index++)
 		{
 			auto& worm = Worms[worm_index];
-			for (int i = 0; i < worm.Points.size() - 3; i++)
+			for (int i = 0; i < (int)worm.Points.size() - SELF_COLLISION_OFFSET; i++)
 			{
 				if ((worm.HeadPos() - worm.Points[i]).Norm() < worm.HeadSize())
 				{
@@ -537,13 +573,13 @@ bool GameUpdate(const FVideo& Video, const FAudio& Audio, const FInput& Input, c
 	if (Game == nullptr)
 	{
 		Game = new GameContext{ Time };
-		Game->DebugDisplay = EDebugDisplay_MoveTargets;
+		Game->DebugDisplay = EDebugDisplay_AI;
 		Game->GameRules =
 			EGameRules_CollidingIntoWormsKillsYou
-			//EGameRules_SelfCollision
-			//EGameRules_CollidingIntoWormCutsIt
+			| EGameRules_CollidingIntoWormCutsIt
+			//| EGameRules_SelfCollisionCuts
+			//| EGameRules_SelfCollisionKills
 			;
-
 	}
 
 	if (!Game->Update(Video, Audio, Input, Time))
