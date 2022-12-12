@@ -6,9 +6,44 @@
 #include "WormsLib/WormsVideoHelp.h"
 #include "vs2019/HandyUtils.h"
 
+
+GameContext* Game;
+
+bool GameUpdate(const FVideo& Video, const FAudio& Audio, const FInput& Input, const FTime& Time)
+{
+	if (Game == nullptr)
+	{
+		Game = new GameContext{ Time };
+
+		Game->DebugDisplay = 
+			EDebugDisplay_AI
+			//| EDebugDisplay_BoundingBoxes
+			//| EDebugDisplay_Breadcrumbs
+			//| EDebugDisplay_FoodBroadphase
+			//| EDebugDisplay_MoveTargets
+			;
+
+		Game->GameRules =
+			EGameRules_CollidingIntoWormsKillsYou
+			//| EGameRules_CollidingIntoWormCutsIt
+			//| EGameRules_SelfCollisionCuts
+			//| EGameRules_SelfCollisionKills
+			;
+	}
+
+	if (!Game->Update(Video, Audio, Input, Time))
+	{
+		delete Game;
+		Game = nullptr;
+	}
+
+	if (Input.Escape)
+		return false;
+
+	return true;
+}
+
 GameContext::GameContext(const FTime& Time): WorldBounds{ FRect{FVec2{-960.f, -540.f}, FVec2{960.f, 540.f}} }
-                                             , AudioHelp{}
-                                             , JukeBox{}
 {
 	
 	_currentState = new IntroState;
@@ -20,7 +55,6 @@ GameContext::GameContext(const FTime& Time): WorldBounds{ FRect{FVec2{-960.f, -5
 	FVec2 spawn_offset = { 0, -SPAWN_OFFSET_DISTANCE };
 	Worms.push_back(FWorm(spawn_offset));
 
-	//enemy count
 	for (size_t i = 0; i < NUM_ENEMIES; i++)
 	{
 		Worms.push_back(FWorm({ Rotate(spawn_offset, (i + 1) * 360.0f / (NUM_ENEMIES + 1)) }));
@@ -32,8 +66,7 @@ GameContext::GameContext(const FTime& Time): WorldBounds{ FRect{FVec2{-960.f, -5
 		FoodGridPtrs[i] = new std::vector<Food>();
 
 	int food_amount = 0;
-	
-	while (food_amount <= 500)
+	while (food_amount <= INITIAL_FOOD_AMOUNT)
 	{
 		const int spawn_amount = RandomInt(1, 3);
 		const float max_food_size = FWormsVideoHelp::FoodRadius(3);
@@ -50,37 +83,6 @@ GameContext::GameContext(const FTime& Time): WorldBounds{ FRect{FVec2{-960.f, -5
 	}
 }
 
-
-void DrawBounds(const FVideo& Video, const FVideoViewPort& ViewPort, const FViewportTransform& Transform, const FRect& rect)
-{
-	const FColor Color = FColor(0x991111);
-
-	const auto ViewportWorldBoundsBegin = Transform.WorldToViewport(rect.Begin);
-	const auto ViewportWorldBoundsEnd = Transform.WorldToViewport(rect.End);
-
-	int Y = ViewPort.Y;
-
-	for (const int YMax = std::min(std::max(0, (int)ViewportWorldBoundsBegin.Y), ViewPort.Y + ViewPort.Height); Y < YMax; ++Y)
-	{
-		for (int X = ViewPort.X; X < ViewPort.X + ViewPort.Width; ++X)
-		{
-		}
-	}
-
-	for (const int YMax = std::min(ViewPort.Y + ViewPort.Height, (int)ViewportWorldBoundsEnd.Y); Y < YMax; ++Y)
-	{
-
-		int X = ViewPort.X;
-
-		for (const int XMax = std::min(std::max(0, (int)ViewportWorldBoundsBegin.X), ViewPort.X + ViewPort.Width); X < XMax; ++X)
-		{
-		}
-
-		for (const int XMax = std::min(ViewPort.X + ViewPort.Width, (int)ViewportWorldBoundsEnd.X); X < XMax; ++X)
-			Video.Buffer[X + Y * Video.Width] = Color;
-	}
-}
-
 void GameContext::Render(const FVideo& Video)
 {
 	FWormsVideoHelp::Grid(Video, Video.ViewPort(), ViewPortTransform, WorldBounds);
@@ -94,21 +96,21 @@ void GameContext::Render(const FVideo& Video)
 	for (auto& worm : Worms)
 		FWormsVideoHelp::Worm(Video, Video.ViewPort(), ViewPortTransform, IsPlayerWorm(&worm), worm.HeadSize() / 2.0f, worm.Points.size(), worm.Points.data(), &worm.InputTargetPosition);
 
-	for (auto& worm_parts : WormParts)
+	for (auto& worm_part : LostWormParts)
 	{
-		float Size[256];
-		std::fill_n(Size, 256, worm_parts.HeadSize());
+		float Size[512];
+		std::fill_n(Size, 512, worm_part.HeadSize());
 
-		std::vector<FColor> Color(worm_parts.Points().size());
+		std::vector<FColor> Color(worm_part.Points().size());
 
 		int Index = 0;
 
-		std::generate(std::rbegin(Color), std::rend(Color), [worm_parts, &Index]() {
+		std::generate(std::rbegin(Color), std::rend(Color), [worm_part, &Index]() {
 			const auto I = Index++;
-			return worm_parts.Colors[(I / 6) % 2][I % 2];
+			return worm_part.Colors[(I / 6) % 2][I % 2];
 			});
 
-		Dots(Video, Video.ViewPort(), ViewPortTransform, worm_parts.Points().size(), worm_parts.Points().data(), sizeof(worm_parts.Points()[0]), Size, sizeof(Size[0]), Color.data(), sizeof(Color[0]));
+		Dots(Video, Video.ViewPort(), ViewPortTransform, worm_part.Points().size(), worm_part.Points().data(), sizeof(worm_part.Points()[0]), Size, sizeof(Size[0]), Color.data(), sizeof(Color[0]));
 	}
 
 	if (DebugDisplay & EDebugDisplay_Breadcrumbs)
@@ -157,7 +159,6 @@ void GameContext::Render(const FVideo& Video)
 			}
 		}
 	}
-
 	
 	if (DebugDisplay & EDebugDisplay_AI)
 		for (unsigned i = 0; i < AIs.size(); i++)
@@ -185,7 +186,7 @@ void GameContext::Render(const FVideo& Video)
 					
 					Dots(Video, Video.ViewPort(), ViewPortTransform, 1, &position, 0, &Size, 0, &color, 0);
 				}
-		}	
+		}
 }
 
 bool GameContext::RaycastWalls(const FVec2& senseDirection, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out)
@@ -208,51 +209,57 @@ bool GameContext::RaycastWalls(const FVec2& senseDirection, const FVec2& rayStar
 	return false;
 }
 
-bool GameContext::RaycastWorms(const FVec2& senseDirection, const int wormIndex, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out)
+bool GameContext::RaycastOtherWorms(const FVec2& senseDirection, const int wormIndex, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out)
 {
 	for (size_t i = 0; i < Worms.size(); i++)
 	{
 		if(wormIndex == i)
-		{
-			if(GameRules & EGameRules_SelfCollisionCuts || GameRules & EGameRules_SelfCollisionKills)
-			{
-				for (int point_index = 0; point_index < (int)Worms[i].Points.size() - SELF_COLLISION_OFFSET; point_index++)
-				{
-					FVec2 point = Worms[i].Points[point_index];
-					if (LineIntersectsCircle(rayStart, rayEndPoint, Worms[wormIndex].HeadSize() * .5f, point, Worms[i].HeadSize() * .5f))
-					{
-						out = FSenseResult{
-						ESenseHitType::Worm,
-						rayStart,
-						senseDirection,
-						GameRules & EGameRules_SelfCollisionKills ? (rayStart - point).Norm() : RAYCAST_DISTANCE,
-						0 };
-						return true;
-					}
-				}
-				continue;
-			}else
-				continue;
-		}
+			continue;
 
-		if(LineIntersectsRectangle(rayStart, rayEndPoint, Worms[i].HeadSize(), Worms[i].Bounds))
+		if(!LineIntersectsRectangle(rayStart, rayEndPoint, Worms[i].HeadSize(), Worms[i].Bounds))
+			continue;
+
+		for (FVec2 point : Worms[i].Points)
 		{
-			for (FVec2 point : Worms[i].Points)
+			if(LineIntersectsCircle(rayStart, rayEndPoint, Worms[wormIndex].HeadSize() * .5f, point, Worms[i].HeadSize() * .5f))
 			{
-				if(LineIntersectsCircle(rayStart, rayEndPoint, Worms[wormIndex].HeadSize() * .5f, point, Worms[i].HeadSize() * .5f))
+				out = FSenseResult
 				{
-					out = FSenseResult{
 					ESenseHitType::Worm,
 					rayStart,
 					senseDirection,
 					(rayStart-point).Norm(),
-					0 };
-					return true;
-				}				
-			}			
+					0
+				};
+
+				return true;
+			}				
 		}
 	}
 
+	return false;
+}
+
+bool GameContext::RaycastSelf(const FVec2& senseDirection, const int wormIndex, const FVec2& rayStart,
+	const FVec2& rayEndPoint, FSenseResult& out)
+{
+	for (int point_index = 0; point_index < (int)Worms[wormIndex].Points.size() - SELF_COLLISION_OFFSET; point_index++)
+	{
+		FVec2 point = Worms[wormIndex].Points[point_index];
+		if (LineIntersectsCircle(rayStart, rayEndPoint, Worms[wormIndex].HeadSize() * .5f, point, Worms[wormIndex].HeadSize() * .5f))
+		{
+			out = FSenseResult
+			{
+				ESenseHitType::Worm,
+				rayStart,
+				senseDirection,
+				GameRules & EGameRules_SelfCollisionKills ? (rayStart - point).Norm() : RAYCAST_DISTANCE,
+				0
+			};
+
+			return true;
+		}
+	}
 	return false;
 }
 
@@ -267,17 +274,19 @@ bool GameContext::RaycastFood(const FVec2& senseDirection, const FVec2& rayStart
 		for (size_t food_index = 0; food_index < food_cell.size(); food_index++)
 		{
 			const auto& food = food_cell[food_index];
-			if (LineIntersectsCircle(rayStart, rayEndPoint, cast_width, food.Position, FWormsVideoHelp::FoodRadius(3)))
-			{
-				out = FSenseResult{
-					ESenseHitType::Food,
-					rayStart,
-					senseDirection,
-					(rayStart - food.Position).Norm(),
-					food.Value };
+			if (!LineIntersectsCircle(rayStart, rayEndPoint, cast_width, food.Position, FWormsVideoHelp::FoodRadius(3)))
+				continue;
 
-				return true;
-			}
+			out = FSenseResult
+			{
+				ESenseHitType::Food,
+				rayStart,
+				senseDirection,
+				(rayStart - food.Position).Norm(),
+				food.Value
+			};
+
+			return true;
 		}
 	}
 
@@ -291,8 +300,12 @@ bool GameContext::ProcessSenseDirection(const FVec2& senseDirection, const int w
 				
 	if (RaycastWalls(senseDirection, rayStart,  rayEndPoint, result))
 		return true;
-						
-	if (RaycastWorms(senseDirection, wormIndex, rayStart,  rayEndPoint, result))
+
+	if(GameRules & EGameRules_SelfCollisionCuts || GameRules & EGameRules_SelfCollisionKills)
+		if (RaycastSelf(senseDirection, wormIndex, rayStart, rayEndPoint, result))
+			return true;
+
+	if (RaycastOtherWorms(senseDirection, wormIndex, rayStart,  rayEndPoint, result))
 		return true;
 
 	if (RaycastFood(senseDirection, rayStart, rayEndPoint, Worms[wormIndex].HeadSize(), result))
@@ -339,20 +352,20 @@ bool GameContext::ProcessDamagedWorms(const FTime& Time)
 		if(worm.DeadSegments <= 0)
 			continue;
 
+		JukeBox.DamageTone(Time, worm.DeadSegments);
+		
 		if(IsPlayerWorm(&worm))
-			WormParts.emplace_back(WormPart{FWorm{worm.Points.front()}, PLAYER_COLORS });
+			LostWormParts.emplace_back(WormPart{FWorm{worm.Points.front()}, PLAYER_COLORS });
 		else
-			WormParts.emplace_back(WormPart{ FWorm{worm.Points.front()}, OTHERS_COLORS });
+			LostWormParts.emplace_back(WormPart{ FWorm{worm.Points.front()}, OTHERS_COLORS });
 
-		WormParts.back().Points().clear();
+		LostWormParts.back().Points().clear();
 
 		for(auto it = worm.Points.begin(); it < std::next(worm.Points.begin(), worm.DeadSegments); it++)
 		{
 			auto copy = *it;
-			WormParts.back().Points().emplace_back(copy);				
+			LostWormParts.back().Points().emplace_back(copy);				
 		}
-
-		JukeBox.DamageTone(Time, worm.DeadSegments);
 
 		if (worm.DeadSegments >= worm.HP())
 		{
@@ -463,7 +476,6 @@ void GameContext::ProcessOverlaps(const FTime& Time)
 				}
 			}
 		}
-
 }
 
 void GameContext::ProcessDeadParts(const FTime& Time)
@@ -473,9 +485,9 @@ void GameContext::ProcessDeadParts(const FTime& Time)
 
 	_nextPartsUpdate = Time.ElapsedTime + DEAD_PARTS_UPDATE;
 
-	for (size_t i = 0; i < WormParts.size(); i++)
+	for (size_t i = 0; i < LostWormParts.size(); i++)
 	{
-		auto& points = WormParts[i].Points();
+		auto& points = LostWormParts[i].Points();
 		if (!points.empty())
 		{
 			FVec2 point = points.back();
@@ -564,32 +576,4 @@ bool GameContext::Update(const FVideo& Video, const FAudio& Audio, const FInput&
 	Render(Video);
 
 	return keep_playing;
-}
-
-GameContext* Game;
-
-bool GameUpdate(const FVideo& Video, const FAudio& Audio, const FInput& Input, const FTime& Time)
-{
-	if (Game == nullptr)
-	{
-		Game = new GameContext{ Time };
-		Game->DebugDisplay = EDebugDisplay_AI;
-		Game->GameRules =
-			EGameRules_CollidingIntoWormsKillsYou
-			| EGameRules_CollidingIntoWormCutsIt
-			//| EGameRules_SelfCollisionCuts
-			//| EGameRules_SelfCollisionKills
-			;
-	}
-
-	if (!Game->Update(Video, Audio, Input, Time))
-	{
-		delete Game;
-		Game = nullptr;
-	}
-
-	if (Input.Escape)
-		return false;
-
-	return true;
 }

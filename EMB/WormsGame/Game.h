@@ -17,6 +17,8 @@
 #define SPAWN_OFFSET_DISTANCE 350
 #define SELF_COLLISION_OFFSET 10
 
+#define INITIAL_FOOD_AMOUNT 500
+
 #define OTHERS_COLORS { {0xDFBB99, 0xB98704}, {0x774300, 0xB98704} }
 #define PLAYER_COLORS { {0xB2DDBC, 0x72BB7A}, {0x3A6656, 0x72BB7A} }
 
@@ -77,7 +79,7 @@ private:
 	std::vector<Food>* FoodGridPtrs[GRID_COLUMNS * GRID_ROWS];
 
 	std::vector<FWorm> Worms{};
-	std::vector<WormPart> WormParts;
+	std::vector<WormPart> LostWormParts;
 
 	std::vector <FWormAISensor> AISensors{};
 	std::vector<std::unique_ptr<IWormAI>> AIs;
@@ -88,7 +90,8 @@ private:
 	
 	bool ProcessSenseDirection(const FVec2& senseDirection, const int wormIndex, FSenseResult& result);
 	bool RaycastWalls(const FVec2& senseDirection, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out);
-	bool RaycastWorms(const FVec2& senseDirection, const int wormIndex, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out);
+	bool RaycastOtherWorms(const FVec2& senseDirection, const int wormIndex, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out);
+	bool RaycastSelf(const FVec2& senseDirection, const int wormIndex, const FVec2& rayStart, const FVec2& rayEndPoint, FSenseResult& out);
 	bool RaycastFood(const FVec2& senseDirection, const FVec2& rayStart, const FVec2& rayEndPoint, float cast_width, FSenseResult& out);
 
 	std::vector<Food>& GetFoodCell(FVec2 position);

@@ -52,29 +52,28 @@ inline bool Approx(float a, float b)
 	return abs(a - b) < 0.001f;
 }
 
-inline bool Intersects(FVec2 P0, FVec2 P1, FVec2 C, float radius)
+
+inline void DrawBounds(const FVideo& Video, const FVideoViewPort& ViewPort, const FViewportTransform& Transform, const FRect& rect)
 {
-	FVec2 direction = P1 - P0;
-	float distance = direction.Norm();
-	direction = (fabsf(distance) > FLT_EPSILON) ? direction / distance : direction;
-	
-	FVec2 diretcion_to_C = C - P0;
-	float projection_length = direction.Dot(diretcion_to_C);
+	const FColor Color = FColor(0x991111);
 
-	if (projection_length < 0)
-		return false;
+	const auto ViewportWorldBoundsBegin = Transform.WorldToViewport(rect.Begin);
+	const auto ViewportWorldBoundsEnd = Transform.WorldToViewport(rect.End);
 
-	if (projection_length > distance)
-		return false;
-	
-	FVec2 projection_point = P0 + direction * projection_length;
+	int Y = ViewPort.Y;
 
-	if ((projection_point - C).Norm() > 2 * radius)
-		return false;
+	Y = std::min(std::max(0, (int)ViewportWorldBoundsBegin.Y), ViewPort.Y + ViewPort.Height);
 
-	return true;
+	for (const int YMax = std::min(ViewPort.Y + ViewPort.Height, (int)ViewportWorldBoundsEnd.Y); Y < YMax; ++Y)
+	{
+		int X = ViewPort.X;
+		X = std::min(std::max(0, (int)ViewportWorldBoundsBegin.X), ViewPort.X + ViewPort.Width);
 
+		for (const int XMax = std::min(ViewPort.X + ViewPort.Width, (int)ViewportWorldBoundsEnd.X); X < XMax; ++X)
+			Video.Buffer[X + Y * Video.Width] = Color;
+	}
 }
+
 
 inline int Quantanize(const FVec2& direction, int numDirections)
 {

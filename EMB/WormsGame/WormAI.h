@@ -16,7 +16,7 @@
 #define BASE_FOOD_ATTRACTIVENESS 6.0f
 
 #define HAZARD_SIDECHAINING 30.0f
-#define HAZARD_ATTRACTIVENESS_PENALTY_MIN_AT 210.0f
+#define HAZARD_ATTRACTIVENESS_PENALTY_MIN_AT 180.0f
 #define HAZARD_ATTRACTIVENESS_PENALTY_MAX_AT 50.0f
 #define ESCAPE_DIRECTION_ATTRACTIVENESS_COEF 2.0f
 
@@ -73,5 +73,7 @@ public:
 	void PossessImpl(IWorm& InWorm, IWormAISensor& InWormAISensor) override;
 	void UpdateSenseDirections(const FTime& Time);
 	void UpdateImpl(const FTime& Time) override;
+	bool NeedsUpdate();
+
 };
 

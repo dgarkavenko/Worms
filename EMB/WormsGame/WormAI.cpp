@@ -1,8 +1,6 @@
 #include "WormsLib/Worms.h"
 #include "WormAI.h"
 
-#include "vs2019/Logger.h"
-
 
 FAIFactoryRegistration<FWormAI> WormAIFactory("Worm AI");
 
@@ -23,16 +21,39 @@ void FWormAI::UpdateSenseDirections(const FTime& Time)
 	accumulated_raycast_offset += NUM_RAYCASTS_PER_FRAME * RAYCAST_PRECISSION;
 	accumulated_raycast_offset = accumulated_raycast_offset % 360;
 
-	for (int i = 0; i < NUM_RAYCASTS_PER_FRAME; i++)
+	WormAISensor->Sense(SenseRays);
+}
+
+bool FWormAI::NeedsUpdate()
+{
+	if (decision_timeout < 0)
+		return true;
+
+	if ((Worm->HeadPos() - Destination).Norm() < Worm->HeadSize() * 2)
+		return true;
+
+	std::vector<float> positive_values;
+	float median = 0;
+
+	for (size_t i = 0; i < NUM_DIRECTIONS; i++)
+		if (DirectionAttractiveness[i] > 0)
+			positive_values.emplace_back(DirectionAttractiveness[i]);
+
+	if(!positive_values.empty())
 	{
-		char log[32];
-		sprintf_s(log, "[a %.2f][o %i]\n", (float)i * RAYCAST_PRECISSION + accumulated_raycast_offset, accumulated_raycast_offset);
-
-		Logger::Output(log);
-
+		std::nth_element(positive_values.begin(), positive_values.begin() + positive_values.size() / 2, positive_values.end());
+		median = positive_values[positive_values.size() / 2];
 	}
 
-	WormAISensor->Sense(SenseRays);
+	if (DirectionAttractiveness[QuantinizedDirection] < median)
+		return true;
+
+	const int offset_size = 2;
+	for (int offset_index = QuantinizedDirection - offset_size; offset_index <= QuantinizedDirection + offset_size; offset_index++)
+		if(DirectionAttractiveness[offset_index] < 0)
+			return true;
+
+	return false;
 }
 
 void FWormAI::UpdateImpl(const FTime& Time)
@@ -42,11 +63,10 @@ void FWormAI::UpdateImpl(const FTime& Time)
 	//reset attractiveness over time
 	for (unsigned i = 0; i < NUM_DIRECTIONS; i++)
 	{
-		const float delta_to_target = 0 - DirectionAttractiveness[i];
 		const float change = (float)Time.DeltaTime * ATTRACTIVENESS_DETERIORATION;
-		const int s = sign(delta_to_target);
+		const int s = -sign(DirectionAttractiveness[i]);
 
-		if (std::abs(delta_to_target) > change)
+		if (std::abs(DirectionAttractiveness[i]) > change)
 			DirectionAttractiveness[i] += s * change;
 		else
 			DirectionAttractiveness[i] = 0;
@@ -92,36 +112,9 @@ void FWormAI::UpdateImpl(const FTime& Time)
 			if (attractiveness_of_opposite >= 0)
 				attractiveness_of_opposite = std::min(MAX_ATTRACTIVENESS, ESCAPE_DIRECTION_ATTRACTIVENESS_COEF * std::abs(DirectionAttractiveness[i]));
 		}
-	}
+	}	
 
-	std::vector<float> positive_values;
-	float median = 0;
-
-	for (size_t i = 0; i < NUM_DIRECTIONS; i++)
-		if (DirectionAttractiveness[i] > 0)
-			positive_values.emplace_back(DirectionAttractiveness[i]);
-
-	if(!positive_values.empty())
-	{
-		std::nth_element(positive_values.begin(), positive_values.begin() + positive_values.size() / 2, positive_values.end());
-		median = positive_values[positive_values.size() / 2];
-	}
-
-	bool needs_update = decision_timeout < 0
-		||	DirectionAttractiveness[QuantinizedDirection] < median
-		|| (Worm->HeadPos() - Destination).Norm() < Worm->HeadSize() * 2;
-
-	const int offset_size = 2;
-	for (int offset_index = QuantinizedDirection - offset_size; offset_index <= QuantinizedDirection + offset_size; offset_index++)
-	{
-		if(DirectionAttractiveness[offset_index] < 0)
-		{
-			needs_update = true;
-			break;
-		}
-	}
-
-	if(needs_update){
+	if(NeedsUpdate()){
 
 		//for better decision making I pow2 positive values
 		float squared_attractivness[NUM_DIRECTIONS];
@@ -132,7 +125,7 @@ void FWormAI::UpdateImpl(const FTime& Time)
 		QuantinizedDirection = GetRandomIndex(squared_attractivness, NUM_DIRECTIONS);
 		if(QuantinizedDirection > 0)
 		{
-			Destination = Worm->HeadPos() + DirectionFronQuantanized(QuantinizedDirection, NUM_DIRECTIONS) * 200;
+			Destination = Worm->HeadPos() + DirectionFronQuantanized(QuantinizedDirection, NUM_DIRECTIONS) * RAYCAST_DISTANCE;
 			decision_timeout = DESTINATION_UPDATE_TIMEOUT;
 		}
 	}
