@@ -43,4 +43,4 @@ Also, during development I had to implement a couple of debug tools to make sure
 Talking about necessary optimization I decided that the game needs bounding box checks for Worms (EDebugDisplay_BoundingBoxes) and Food Broadphasing (EDebugDisplay_FoodBroadphase) to limit the number of overlap checks.
 
 ### Side notes
-I apologize for mix of code styles! Usually I'm really strict about it, but got a little confused here and got here a mix of common cpp style and Unreal. 
+I apologize for mix of code styles! Usually I'm really strict about it, but got a little confused here and got a mix of common cpp and Unreal styles. 
