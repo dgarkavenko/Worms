@@ -1,7 +1,7 @@
 # Worms Game (with audio!)
 
 ### Gameplay
-Since the assignment had a little room for interpritation, I've implemented a couple of mechanics that can be enabled by uncommenting next lines in Game.cpp:26:
+Since the assignment had some room for interpritation, I've implemented a couple of mechanics that can be enabled by uncommenting next lines in Game.cpp:26:
 
 		Game->GameRules =
 			EGameRules_CollidingIntoWormsKillsYou
